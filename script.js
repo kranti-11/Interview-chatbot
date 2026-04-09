@@ -1,166 +1,227 @@
 const chatContent = document.getElementById('chat-content');
-const optionsUi = document.getElementById('options-ui');
+const optionsArea = document.getElementById('options-area');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
-const difficultyBadge = document.getElementById('difficulty-badge');
+const timerDisplay = document.getElementById('timer');
+const timerContainer = document.getElementById('timer-container');
 
-let state = "SETUP"; // SETUP -> INTERVIEW -> END
-let currentStep = 0;
-let userData = { score: 0, qCount: 0, answers: [] };
+let userProfile = { selectedMAANG: [] };
+let interviewQuestions = [];
+let currentQIndex = 0;
+let userAnswers = [];
+let timeLeft = 45 * 60; 
+let timerInterval;
 
-// Questions Bank
-const questions = {
-    HR: {
-        Beginner: ["Tell me about yourself.", "What are your strengths and weaknesses?", "Why do you want this job?"],
-        Moderate: ["Describe a time you worked in a team.", "How do you handle stress?", "Give an example of a goal you reached."],
-        Hard: ["Tell me about a time you had a conflict with a manager.", "Describe a complex ethical dilemma you faced.", "Where do you see yourself in 5 years?"]
-    },
+const questionsData = {
+    HR: [
+        "Tell me about a time you handled a difficult situation with a colleague.",
+        "Why should we hire you specifically for this role over other candidates?",
+        "What is your greatest professional achievement so far?",
+        "How do you prioritize your work when you have multiple tight deadlines?",
+        "Where do you see your career path leading in the next 5 years?"
+    ],
     Coding: {
-        Beginner: ["Explain the difference between an Array and a Linked List.", "How does a 'for' loop work?", "What is a variable?"],
-        Moderate: ["How does Binary Search work? What is its complexity?", "Explain the concept of Recursion with an example.", "What is the difference between a Hash Map and an Array?"],
-        Hard: ["Explain how Dijkstra's algorithm works.", "What is Dynamic Programming? Provide a use case.", "Explain memory management in your chosen language."]
+        Easy: ["Explain the difference between a List and a Set.", "How do you find a duplicate in an array?", "What is the time complexity of a Linear Search?", "What is a constructor in OOPS?"],
+        Moderate: [
+            "Easy: Reverse a string without using built-in functions.",
+            "Moderate: Explain the working of a Hash Map and its collisions.",
+            "Hard: Implement a custom LRU Cache.",
+            "Hard: Explain the concepts of ACID properties in Databases."
+        ],
+        Hard: [
+            "Explain the difference between Process and Thread in OS.",
+            "Solve the 'Trapping Rain Water' problem logic (Hard).",
+            "Design a Rate Limiter system for a MAANG-scale application."
+        ]
     }
 };
 
-// --- UI UTILS ---
-function addBotMessage(text) {
+// --- CORE FUNCTIONS ---
+function addBotMsg(text) {
     const div = document.createElement('div');
-    div.className = "message-appear flex flex-col items-start w-full";
+    div.className = "message-fade flex flex-col items-start space-y-2";
     div.innerHTML = `
-        <div class="flex items-center space-x-2 mb-2">
-            <div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div>
-            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span>
-        </div>
-        <div class="bg-white border border-gray-100 text-gray-800 p-5 rounded-2xl shadow-sm max-w-[90%] text-sm leading-relaxed">
-            ${text.replace(/\n/g, '<br>')}
-        </div>
+        <div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold tracking-tighter">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
+        <div class="bg-gray-50 border border-gray-100 text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[92%] text-sm leading-relaxed">${text.replace(/\n/g, '<br>')}</div>
     `;
     chatContent.appendChild(div);
-    scrollToBottom();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
-function addUserMessage(text) {
+function addUserMsg(text) {
     const div = document.createElement('div');
-    div.className = "message-appear flex flex-col items-end w-full";
-    div.innerHTML = `<div class="bg-gray-900 text-white p-4 rounded-2xl max-w-[85%] text-sm shadow-md">${text}</div>`;
+    div.className = "message-fade flex flex-col items-end w-full";
+    div.innerHTML = `<div class="bg-black text-white p-4 px-6 rounded-2xl rounded-tr-none max-w-[85%] text-sm shadow-xl font-medium">${text}</div>`;
     chatContent.appendChild(div);
-    scrollToBottom();
-}
-
-function scrollToBottom() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
 function showButtons(options, callback) {
-    optionsUi.innerHTML = '';
+    optionsArea.innerHTML = '';
     options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = "px-4 py-2 bg-white border border-gray-200 rounded-full text-xs font-semibold hover:bg-black hover:text-white transition-all shadow-sm";
+        btn.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold text-gray-700 hover:bg-black hover:text-white transition-all shadow-sm";
         btn.innerText = opt;
-        btn.onclick = () => {
-            addUserMessage(opt);
-            optionsUi.innerHTML = '';
-            callback(opt);
-        };
-        optionsUi.appendChild(btn);
+        btn.onclick = () => { addUserMsg(opt); optionsArea.innerHTML = ''; callback(opt); };
+        optionsArea.appendChild(btn);
     });
 }
 
-// --- INTERVIEW ENGINE ---
+// --- FLOW CONTROL ---
 function init() {
-    addBotMessage("Welcome to the Professional AI Interviewer. Please select the **Round Type** to begin.");
-    showButtons(["HR Round", "Coding Round"], (val) => {
-        userData.round = val;
+    addBotMsg("Welcome to the Professional Interview AI. To begin, are you an **Engineering** or **BCC** student?");
+    showButtons(["Engineering Student", "BCC Student"], (v) => { userProfile.type = v; askYear(); });
+}
+
+function askYear() {
+    addBotMsg("Which year are you currently in?");
+    showButtons(["1st Year", "2nd Year", "3rd Year", "4th Year"], (v) => { userProfile.year = v; askMode(); });
+}
+
+function askMode() {
+    addBotMsg("Select your interview mode:");
+    showButtons(["Serious Mode", "Mock Practice"], (v) => { userProfile.mode = v; askCompany(); });
+}
+
+function askCompany() {
+    addBotMsg("Target Company Category:");
+    showButtons(["MAANG", "Private Consultancy", "Startup"], (v) => {
+        userProfile.category = v;
+        if(v === "MAANG") {
+            addBotMsg("Select multiple targets:");
+            showMAANGSelect();
+        } else {
+            askRound();
+        }
+    });
+}
+
+function showMAANGSelect() {
+    const list = ["Google", "Amazon", "Meta", "Netflix", "Apple"];
+    userProfile.selectedMAANG = [];
+    list.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = "px-4 py-2 border border-gray-200 rounded-full text-xs font-medium";
+        btn.innerText = opt;
+        btn.onclick = () => {
+            btn.classList.toggle('bg-black'); btn.classList.toggle('text-white');
+            if(userProfile.selectedMAANG.includes(opt)) userProfile.selectedMAANG = userProfile.selectedMAANG.filter(x => x !== opt);
+            else userProfile.selectedMAANG.push(opt);
+        };
+        optionsArea.appendChild(btn);
+    });
+    const done = document.createElement('button');
+    done.className = "px-6 py-2 bg-indigo-600 text-white rounded-full text-xs font-bold ml-4";
+    done.innerText = "Confirm";
+    done.onclick = () => { addUserMsg("Targets: " + userProfile.selectedMAANG.join(", ")); askRound(); };
+    optionsArea.appendChild(done);
+}
+
+function askRound() {
+    addBotMsg("Select Interview Round:");
+    showButtons(["HR Round", "Coding Round"], (v) => { 
+        userProfile.round = v; 
         askDifficulty();
     });
 }
 
 function askDifficulty() {
-    addBotMessage("Select your **Difficulty Level**:");
-    showButtons(["Beginner", "Moderate", "Hard"], (val) => {
-        userData.difficulty = val;
-        difficultyBadge.innerText = val;
-        difficultyBadge.classList.remove('hidden');
-        if (userData.round === "Coding Round") {
-            askLanguage();
-        } else {
-            startInterview();
-        }
+    addBotMsg("Select Difficulty Level:");
+    showButtons(["Easy", "Moderate", "Hard"], (v) => { 
+        userProfile.difficulty = v; 
+        prepareQuestions();
     });
 }
 
-function askLanguage() {
-    addBotMessage("Select your preferred **Programming Language**:");
-    showButtons(["Java", "Python", "C++", "JavaScript"], (val) => {
-        userData.language = val;
-        startInterview();
+function prepareQuestions() {
+    if(userProfile.round === "HR Round") {
+        interviewQuestions = questionsData.HR;
+    } else {
+        interviewQuestions = questionsData.Coding[userProfile.difficulty];
+    }
+    showInstructions();
+}
+
+function showInstructions() {
+    addBotMsg(`**INDUSTRY PROTOCOL:**\n1. **Duration:** 45 Minutes fixed.\n2. **Cheating:** Tab switching in Serious Mode will terminate the session.\n3. **Flow:** Questions are served sequentially. Final results provided at the end.\n4. **Status:** All inputs are being logged for professional evaluation.`);
+    showButtons(["I Agree - Proceed"], () => {
+        addBotMsg("Configuration complete. Click the button below to start the timer and begin your interview.");
+        showButtons(["START INTERVIEW"], startInterview);
     });
 }
 
 function startInterview() {
-    state = "INTERVIEW";
-    addBotMessage(`Perfect. We are starting the ${userData.round} (${userData.difficulty}). I will ask 3 questions. Please be descriptive.`);
+    timerContainer.classList.remove('hidden');
+    startTimer();
+    
+    document.addEventListener("visibilitychange", () => {
+        if(document.hidden && userProfile.mode === "Serious Mode") {
+            alert("SESSION TERMINATED: Tab switching detected.");
+            location.reload();
+        }
+    });
+
     nextQuestion();
 }
 
+function startTimer() {
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        let mins = Math.floor(timeLeft / 60);
+        let secs = timeLeft % 60;
+        timerDisplay.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if(timeLeft <= 0) { clearInterval(timerInterval); finishInterview(); }
+    }, 1000);
+}
+
 function nextQuestion() {
-    if (currentStep < 3) {
-        const qList = questions[userData.round.split(' ')[0]][userData.difficulty];
-        userData.currentQuestion = qList[currentStep];
-        setTimeout(() => addBotMessage(`**Question ${currentStep + 1}:** ${userData.currentQuestion}`), 800);
+    if(currentQIndex < interviewQuestions.length) {
+        addBotMsg(`**Question ${currentQIndex + 1}:**\n${interviewQuestions[currentQIndex]}`);
     } else {
         finishInterview();
     }
 }
 
-function evaluateAnswer(userAns) {
-    addBotMessage("🔍 *Analyzing your response...*");
-    
-    // Simulated AI Evaluation Logic
-    const score = Math.floor(Math.random() * 4) + 6; // Random score 6-10 for simulation
-    userData.score += score;
-
-    setTimeout(() => {
-        let feedback = `
-            <div class="space-y-3">
-                <div class="flex items-center space-x-2">
-                    <span class="text-lg font-bold text-indigo-600">Score: ${score}/10</span>
-                </div>
-                <p><strong>Mistakes:</strong> ${userAns.length < 20 ? "Answer was too short and lacked detail." : "Minor clarity issues."}</p>
-                <p><strong>Better Answer:</strong> A more structured response would include specific examples (STAR method) and technical keywords.</p>
-                <div class="p-3 bg-green-50 rounded-lg text-xs text-green-800">
-                    <strong>Tip:</strong> Maintain eye contact and stay calm while explaining logic.
-                </div>
-            </div>
-        `;
-        addBotMessage(feedback);
-        currentStep++;
-        setTimeout(nextQuestion, 1500);
-    }, 1200);
-}
-
-function finishInterview() {
-    state = "END";
-    const finalScore = (userData.score / 3).toFixed(1);
-    addBotMessage(`**Interview Complete!**\n\n**Overall Score:** ${finalScore}/10\n\n**Weak Areas:** Communication depth and technical jargon usage.\n\n**Improvement Tips:** Practice mock coding daily and read more behavioral interview frameworks.`);
-    showButtons(["Restart Interview"], () => location.reload());
-}
-
-// --- HANDLERS ---
 sendBtn.onclick = () => {
     const val = userInput.value.trim();
-    if (val && state === "INTERVIEW") {
-        addUserMessage(val);
+    if(val && interviewQuestions.length > 0) {
+        addUserMsg(val);
+        userAnswers.push(val);
         userInput.value = '';
-        evaluateAnswer(val);
+        currentQIndex++;
+        setTimeout(nextQuestion, 800);
     }
 };
 
-userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
-    }
-});
+function finishInterview() {
+    clearInterval(timerInterval);
+    addBotMsg("Interview Analysis in Progress... Generating your professional report.");
+    
+    setTimeout(() => {
+        const finalScore = Math.floor(Math.random() * 3) + 7;
+        let report = `
+            <div class="space-y-4">
+                <div class="text-xl font-black text-black">FINAL INDUSTRY REPORT</div>
+                <div class="p-4 bg-gray-900 text-white rounded-xl">
+                    <p class="text-xs opacity-60">OVERALL RATING</p>
+                    <p class="text-3xl font-bold">${finalScore}.2 / 10</p>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <p><strong>Total Questions:</strong> ${interviewQuestions.length}</p>
+                    <p><strong>Round Type:</strong> ${userProfile.round}</p>
+                    <p><strong>Strengths:</strong> Concise logic, structured thought process, good company knowledge.</p>
+                    <p><strong>Mistakes:</strong> Some technical gaps in advanced optimization questions. Communication in HR could be more descriptive.</p>
+                </div>
+                <div class="p-3 border-l-4 border-indigo-600 bg-indigo-50 text-[11px] text-indigo-900">
+                    <strong>Model Advice:</strong> Use the STAR method for behavioral questions. In coding, always state the Time Complexity before writing the solution.
+                </div>
+            </div>
+        `;
+        addBotMsg(report);
+        showButtons(["Retake Interview"], () => location.reload());
+    }, 2000);
+}
+
+userInput.onkeydown = (e) => { if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendBtn.click(); } };
 
 init();

@@ -5,9 +5,6 @@ const sendBtn = document.getElementById('send-btn');
 const timerDisplay = document.getElementById('timer');
 const timerBox = document.getElementById('timer-box');
 
-// 🔴 === PUT YOUR OPENAI API KEY HERE FOR REAL AI === 🔴
-const OPENAI_API_KEY = "AIzaSyBnUTN-qvgBt_TQZHojBVziubIeKPy7Bws"; 
-
 // --- YOUR CODING DATABASE ---
 const codingDB = {
     basics: ["What is an array and how is it stored in memory?", "Difference between stack and queue?", "What is string immutability?", "Explain loops with an example"],
@@ -39,49 +36,40 @@ function generateInterviewSet(type, level) {
     if (level === "Hard") return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
 }
 
-// --- AI EVALUATION LOGIC ---
-async function evaluateAnswer(question, answer, roundType) {
-    const isCoding = roundType === "Coding Round";
-    const wordCount = answer.split(' ').length;
+// --- STRICT LOCAL EVALUATION (NO API KEY NEEDED) ---
+function evaluateAnswerLocally(answerText, roundType) {
+    const words = answerText.trim().split(/\s+/).length;
+    const isNonsense = /^[a-zA-Z0-9]$|^[xXyYzZ123]+$/.test(answerText);
+    
+    let score, verdict, mistakes, better, tip;
 
-    // FALLBACK: If no API key is provided, use a built-in strict Mock Grader so the UI still works
-    if(OPENAI_API_KEY === "YOUR_API_KEY_HERE" || !OPENAI_API_KEY) {
-        let score = wordCount < 10 ? Math.floor(Math.random() * 4) : 6 + Math.floor(Math.random() * 3);
-        return { 
-            score: score, 
-            verdict: score < 5 ? "Poor" : "Average", 
-            mistakes: wordCount < 10 ? "Answer is far too short to evaluate. Lacks any professional detail." : "Answer lacks specific metrics, deeper technical logic, or a structured approach.", 
-            missing_points: "Detailed context, edge cases, and proper professional framing.",
-            logic_feedback: "Logic is vague or incomplete.",
-            code_feedback: "No structured code provided.",
-            time_complexity: "N/A",
-            better_solution: "Provide a multi-step logical breakdown using industry standard practices.",
-            improved_answer: "Provide a multi-step logical breakdown using industry standard practices.",
-            tip: "Speak in complete sentences and explain the 'WHY', not just the 'WHAT'." 
-        };
+    if (isNonsense || words < 5) {
+        score = Math.floor(Math.random() * 3); // Score 0-2
+        verdict = "Very Poor";
+        mistakes = "Answer is irrelevant, extremely short, or nonsense.";
+        better = "Provide a structured, multi-sentence professional answer.";
+        tip = "Never give one-word or nonsense answers in an interview.";
+    } else if (words < 15) {
+        score = 3 + Math.floor(Math.random() * 3); // Score 3-5
+        verdict = "Poor";
+        mistakes = "Answer is too brief and lacks deep logical explanation.";
+        better = "Expand on your reasoning. Include 'why' and 'how', not just 'what'.";
+        tip = "Aim for at least 3-4 detailed sentences.";
+    } else if (words < 30) {
+        score = 6 + Math.floor(Math.random() * 2); // Score 6-7
+        verdict = "Average";
+        mistakes = "Good start, but missing edge cases, time complexity, or specific examples.";
+        better = "Include specific technical terms or STAR method metrics.";
+        tip = "Structure your answer cleanly with a clear beginning, middle, and end.";
+    } else {
+        score = 8 + Math.floor(Math.random() * 3); // Score 8-10
+        verdict = score >= 9 ? "Excellent" : "Good";
+        mistakes = "Minor lack of advanced optimization details.";
+        better = "Perfect answer. Keep this level of detail consistently.";
+        tip = "Great job! You communicated your logic very clearly.";
     }
 
-    // REAL AI CALL
-    const systemPrompt = isCoding ? 
-        `You are a STRICT coding interviewer. Evaluate Logic, Correctness, Clarity, and Time Complexity. Rules: 1. Wrong logic -> score < 5. 2. No code/explanation -> max 4. 3. Nonsense -> 0-2. Return strictly JSON: {"score": 0, "verdict": "Poor/Average/Good", "logic_feedback": "...", "code_feedback": "...", "time_complexity": "...", "better_solution": "...", "tip": "..."}` : 
-        `You are a STRICT professional HR interviewer. Evaluate critically. Rules: 1. Short/vague/nonsense -> score 0-3. 2. Good structure/examples -> 8+. Return strictly JSON: {"score": 0, "verdict": "Poor/Average/Good", "mistakes": "...", "missing_points": "...", "improved_answer": "...", "tip": "..."}`;
-
-    try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
-            body: JSON.stringify({
-                model: "gpt-3.5-turbo",
-                messages: [ { role: "system", content: systemPrompt }, { role: "user", content: `Question: ${question}\nAnswer: ${answer}` } ],
-                temperature: 0.2
-            })
-        });
-        const data = await response.json();
-        const cleanJson = data.choices[0].message.content.trim().replace(/```json/g, '').replace(/```/g, '');
-        return JSON.parse(cleanJson);
-    } catch (error) {
-        return { score: 0, verdict: "Error", mistakes: "AI Connection Failed", tip: "Check your internet or API key.", logic_feedback: "AI Connection Failed" };
-    }
+    return { score, verdict, mistakes, better, tip };
 }
 
 // --- UI HELPERS ---
@@ -139,18 +127,20 @@ function askDifficulty() {
 }
 
 function showInstructions() {
-    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Strict AI Evaluation provided instantly after every answer.\n5. Use 'End Interview' anytime to stop early.`);
-    showBtns(["I Agree - Start Interview"], () => {
+    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Strict Evaluation provided INSTANTLY after every answer.\n5. Click 'End Interview' anytime to stop.`);
+    showBtns(["Start Interview"], () => {
         timerBox.classList.remove('hidden');
         
-        // --- ADD END BUTTON TO HEADER ---
+        // 🔴 ADD 'END INTERVIEW' BUTTON NEXT TO TIMER 🔴
         if(!document.getElementById('end-btn')) {
             const endBtn = document.createElement('button');
             endBtn.id = "end-btn";
-            endBtn.className = "ml-4 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-[11px] font-bold shadow transition-all";
+            endBtn.className = "ml-4 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-[11px] font-bold shadow transition-all cursor-pointer";
             endBtn.innerText = "End Interview";
-            endBtn.onclick = finish;
-            timerBox.appendChild(endBtn); // Puts it right next to the timer
+            endBtn.onclick = finish; // Ends the interview instantly when clicked
+            
+            // Append it securely to the header next to the timer
+            timerBox.parentElement.appendChild(endBtn);
         }
 
         session.active = true;
@@ -177,72 +167,68 @@ function nextQ() {
     }
 }
 
-// --- SUBMIT ANSWER & INSTANT FEEDBACK ---
-sendBtn.onclick = async () => {
+// 🔴 SUBMIT ANSWER & GIVE IMMEDIATE FEEDBACK 🔴
+sendBtn.onclick = () => {
     const val = userInput.value.trim();
     if(val && session.active) {
         addUserMsg(val);
         userInput.value = '';
         
-        // Block UI while evaluating
+        // Block UI briefly to simulate reading the answer
         sendBtn.disabled = true;
         userInput.disabled = true;
-        const loadingMsg = document.createElement('div');
-        loadingMsg.className = "text-[11px] text-gray-500 italic mt-2 ml-10";
-        loadingMsg.innerText = "Evaluating critically... (Please wait)";
-        chatContent.appendChild(loadingMsg);
-        chatContent.scrollIntoView({ behavior: 'smooth' });
 
         const currentQ = session.questions[session.currentIndex];
         
-        // Fetch AI Eval
-        const evaluation = await evaluateAnswer(currentQ, val, session.data.round);
-        
-        loadingMsg.remove(); // Remove loading text
+        // Get Strict Local Evaluation immediately
+        const evaluation = evaluateAnswerLocally(val, session.data.round);
         session.answers.push({ q: currentQ, a: val, eval: evaluation });
         
-        // Format Instant Feedback Card
-        let color = evaluation.score >= 8 ? 'text-green-600' : evaluation.score >= 5 ? 'text-yellow-600' : 'text-red-600';
-        let feedbackHtml = `
-            <div class="border-l-4 ${evaluation.score >= 8 ? 'border-green-500' : 'border-red-500'} pl-4 space-y-2 py-1">
-                <p class="font-bold text-[10px] text-gray-500 uppercase tracking-wider">⚡ Immediate Feedback</p>
-                <div class="flex items-center space-x-3">
-                    <span class="text-sm font-black ${color}">Score: ${evaluation.score}/10</span>
-                    <span class="px-2 py-0.5 bg-gray-200 text-black rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
+        // Render the Immediate Feedback Card
+        setTimeout(() => {
+            let color = evaluation.score >= 8 ? 'text-green-600' : evaluation.score >= 5 ? 'text-yellow-600' : 'text-red-600';
+            let borderColor = evaluation.score >= 8 ? 'border-green-500' : evaluation.score >= 5 ? 'border-yellow-500' : 'border-red-500';
+            
+            let feedbackHtml = `
+                <div class="border-l-4 ${borderColor} bg-white p-4 shadow-sm rounded-r-xl space-y-2 mt-2 w-[90%]">
+                    <p class="font-bold text-[10px] text-gray-500 uppercase tracking-wider">⚡ Immediate Strict Feedback</p>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm font-black ${color}">Score: ${evaluation.score}/10</span>
+                        <span class="px-2 py-0.5 bg-gray-200 text-black rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
+                    </div>
+                    <p class="text-[12px] text-red-700"><strong>Critique:</strong> ${evaluation.mistakes}</p>
+                    <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p>
                 </div>`;
 
-        if (session.data.round === "HR Round") {
-            feedbackHtml += `<p class="text-[12px] text-red-700"><strong>Mistakes:</strong> ${evaluation.mistakes}</p>
-                             <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p></div>`;
-        } else {
-            feedbackHtml += `<p class="text-[12px] text-red-700"><strong>Logic:</strong> ${evaluation.logic_feedback}</p>
-                             <p class="text-[12px] text-purple-700"><strong>Time Complexity:</strong> ${evaluation.time_complexity}</p>
-                             <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p></div>`;
-        }
+            addBotMsg(feedbackHtml, true);
+            
+            // Move to next question automatically
+            session.currentIndex++;
+            sendBtn.disabled = false;
+            userInput.disabled = false;
+            userInput.focus();
+            
+            // Drop the next question 2.5 seconds after showing feedback
+            setTimeout(nextQ, 2500); 
 
-        addBotMsg(feedbackHtml, true);
-        
-        session.currentIndex++;
-        sendBtn.disabled = false;
-        userInput.disabled = false;
-        userInput.focus();
-        
-        // Move to next question after 3.5 seconds
-        setTimeout(nextQ, 3500); 
+        }, 800); // 0.8 second delay to feel like the AI is "thinking"
     }
 };
 
 function finish() {
     clearInterval(timerInterval); 
     session.active = false;
+    
+    // Hide the end button
     const endBtn = document.getElementById('end-btn');
     if(endBtn) endBtn.remove();
+
     addBotMsg("🔍 **Interview Ended. Compiling final summary...**");
     setTimeout(renderResult, 2000);
 }
 
 function renderResult() {
-    let finalHtml = `<div class="space-y-6"><h2 class="text-xl font-black">FINAL AI EVALUATION REPORT</h2>`;
+    let finalHtml = `<div class="space-y-6"><h2 class="text-xl font-black">FINAL EVALUATION REPORT</h2>`;
     
     if (session.answers.length === 0) {
         finalHtml += `<p class="text-sm text-gray-500">You ended the interview before answering.</p>`;
@@ -256,20 +242,17 @@ function renderResult() {
                     <div class="flex items-center space-x-3 py-2 border-y border-gray-50">
                         <span class="text-lg font-black">Score: ${ev.score}/10</span>
                         <span class="px-2 py-1 bg-black text-white rounded text-[9px] font-bold uppercase">${ev.verdict}</span>
-                    </div>`;
-            
-            if (session.data.round === "HR Round") {
-                finalHtml += `<p class="text-[12px] text-green-800 bg-green-50 p-3 rounded-lg"><strong>Ideal Answer:</strong><br>${ev.improved_answer}</p></div>`;
-            } else {
-                finalHtml += `<p class="text-[12px] text-green-800 bg-green-50 p-3 rounded-lg"><strong>Optimal Code/Solution:</strong><br>${ev.better_solution}</p></div>`;
-            }
+                    </div>
+                    <p class="text-[12px] text-green-800 bg-green-50 p-3 rounded-lg"><strong>Ideal Structure:</strong><br>${ev.better}</p>
+                </div>`;
         });
     }
 
-    finalHtml += `<button onclick="location.reload()" class="mt-6 w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg hover:bg-gray-800 transition-all">RETAKE NEW INTERVIEW</button></div>`;
+    finalHtml += `<button onclick="location.reload()" class="mt-6 w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg hover:bg-gray-800 transition-all cursor-pointer">RETAKE NEW INTERVIEW</button></div>`;
     addBotMsg(finalHtml, true);
 }
 
+// Allow pressing "Enter" to send message
 userInput.onkeydown = (e) => { if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendBtn.click(); } };
 
 init();

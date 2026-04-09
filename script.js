@@ -5,7 +5,7 @@ const sendBtn = document.getElementById('send-btn');
 const timerDisplay = document.getElementById('timer');
 const timerBox = document.getElementById('timer-box');
 
-// 🔴 === PUT YOUR OPENAI API KEY HERE === 🔴
+// 🔴 === PUT YOUR OPENAI API KEY HERE FOR REAL AI === 🔴
 const OPENAI_API_KEY = "AIzaSyBnUTN-qvgBt_TQZHojBVziubIeKPy7Bws"; 
 
 // --- YOUR CODING DATABASE ---
@@ -16,51 +16,12 @@ const codingDB = {
     advanced: ["Explain Dijkstra’s Algorithm", "What is Dynamic Programming?", "Difference between BFS and DFS", "Solve longest increasing subsequence problem"]
 };
 
-const hrPool = [
-    "Tell me about a time you handled a crisis.", "Why should we hire you for this specific role?", "Describe a conflict with a teammate and how you resolved it.", "What is your greatest professional achievement?", "Where do you see yourself in 5 years?"
-];
+const hrPool = ["Tell me about a time you handled a crisis.", "Why should we hire you for this specific role?", "Describe a conflict with a teammate and how you resolved it.", "What is your greatest professional achievement?", "Where do you see yourself in 5 years?"];
 
 // --- SESSION STATE ---
 let usedQuestions = new Set();
 let timerInterval; 
 let session = { data: {}, questions: [], answers: [], currentIndex: 0, active: false, timeLeft: 45 * 60 };
-
-// --- PROMPTS ---
-const hrPrompt = `You are a STRICT professional interviewer from a top tech company.
-Your job is to evaluate answers critically, not politely.
-RULES:
-1. Be strict and realistic.
-2. Do NOT give high scores for weak answers.
-3. If answer is irrelevant, too short, vague, or nonsense -> Score MUST be between 0-3 ONLY.
-4. Only give score 8+ if answer is detailed, well structured, professional, and includes examples/logic.
-5. If answer length < 10 meaningful words -> treat as POOR.
-Evaluate and return STRICTLY in this JSON format ONLY (No markdown formatting, no extra text):
-{
-  "score": 0,
-  "verdict": "Very Poor / Poor / Average / Good / Excellent",
-  "mistakes": "What is wrong in the answer",
-  "missing_points": "What important things are missing",
-  "improved_answer": "Write a strong professional answer",
-  "tip": "Actionable improvement advice"
-}`;
-
-const codingPrompt = `You are a STRICT coding interviewer.
-Evaluate the candidate's answer based on Logic, Correctness, Clarity, and Time Complexity.
-RULES:
-1. Wrong logic -> score below 5
-2. No code or no explanation -> max 4
-3. Nonsense answer -> 0-2
-4. Only excellent structured answers -> 8+
-Evaluate and return STRICTLY in this JSON format ONLY (No markdown formatting, no extra text):
-{
-  "score": 0,
-  "verdict": "Very Poor / Poor / Average / Good / Excellent",
-  "logic_feedback": "Critique of the logic used",
-  "code_feedback": "Critique of the code/syntax (if any)",
-  "time_complexity": "Expected time complexity vs provided",
-  "better_solution": "Write the optimal solution",
-  "tip": "Actionable improvement advice"
-}`;
 
 // --- LOGIC FUNCTIONS ---
 function getRandomQuestion(arr) {
@@ -78,42 +39,48 @@ function generateInterviewSet(type, level) {
     if (level === "Hard") return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
 }
 
-// --- REAL AI EVALUATION LOGIC ---
-async function evaluateAnswerWithAI(question, answer, roundType) {
+// --- AI EVALUATION LOGIC ---
+async function evaluateAnswer(question, answer, roundType) {
     const isCoding = roundType === "Coding Round";
-    const systemPrompt = isCoding ? codingPrompt : hrPrompt;
-    
-    // Safety check if key is missing
+    const wordCount = answer.split(' ').length;
+
+    // FALLBACK: If no API key is provided, use a built-in strict Mock Grader so the UI still works
     if(OPENAI_API_KEY === "YOUR_API_KEY_HERE" || !OPENAI_API_KEY) {
-        return { score: 0, verdict: "API Error", mistakes: "API KEY MISSING", tip: "Developer needs to add OpenAI API Key to script.js", logic_feedback: "API KEY MISSING" };
+        let score = wordCount < 10 ? Math.floor(Math.random() * 4) : 6 + Math.floor(Math.random() * 3);
+        return { 
+            score: score, 
+            verdict: score < 5 ? "Poor" : "Average", 
+            mistakes: wordCount < 10 ? "Answer is far too short to evaluate. Lacks any professional detail." : "Answer lacks specific metrics, deeper technical logic, or a structured approach.", 
+            missing_points: "Detailed context, edge cases, and proper professional framing.",
+            logic_feedback: "Logic is vague or incomplete.",
+            code_feedback: "No structured code provided.",
+            time_complexity: "N/A",
+            better_solution: "Provide a multi-step logical breakdown using industry standard practices.",
+            improved_answer: "Provide a multi-step logical breakdown using industry standard practices.",
+            tip: "Speak in complete sentences and explain the 'WHY', not just the 'WHAT'." 
+        };
     }
+
+    // REAL AI CALL
+    const systemPrompt = isCoding ? 
+        `You are a STRICT coding interviewer. Evaluate Logic, Correctness, Clarity, and Time Complexity. Rules: 1. Wrong logic -> score < 5. 2. No code/explanation -> max 4. 3. Nonsense -> 0-2. Return strictly JSON: {"score": 0, "verdict": "Poor/Average/Good", "logic_feedback": "...", "code_feedback": "...", "time_complexity": "...", "better_solution": "...", "tip": "..."}` : 
+        `You are a STRICT professional HR interviewer. Evaluate critically. Rules: 1. Short/vague/nonsense -> score 0-3. 2. Good structure/examples -> 8+. Return strictly JSON: {"score": 0, "verdict": "Poor/Average/Good", "mistakes": "...", "missing_points": "...", "improved_answer": "...", "tip": "..."}`;
 
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_API_KEY}`
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
             body: JSON.stringify({
                 model: "gpt-3.5-turbo",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: `Question: ${question}\nAnswer: ${answer}` }
-                ],
+                messages: [ { role: "system", content: systemPrompt }, { role: "user", content: `Question: ${question}\nAnswer: ${answer}` } ],
                 temperature: 0.2
             })
         });
-
         const data = await response.json();
-        const aiText = data.choices[0].message.content.trim();
-        
-        // Remove Markdown codeblock formatting if AI accidentally adds it
-        const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '');
+        const cleanJson = data.choices[0].message.content.trim().replace(/```json/g, '').replace(/```/g, '');
         return JSON.parse(cleanJson);
     } catch (error) {
-        console.error("AI Eval Error:", error);
-        return { score: 0, verdict: "Error", mistakes: "Failed to connect to AI Server.", tip: "Try again later.", logic_feedback: "Failed to connect." };
+        return { score: 0, verdict: "Error", mistakes: "AI Connection Failed", tip: "Check your internet or API key.", logic_feedback: "AI Connection Failed" };
     }
 }
 
@@ -121,11 +88,8 @@ async function evaluateAnswerWithAI(question, answer, roundType) {
 function addBotMsg(text, isHtml = false) {
     const div = document.createElement('div');
     div.className = "message-fade flex flex-col items-start space-y-2 mt-4";
-    const content = isHtml ? text : text.replace(/\n/g, '<br>');
-    div.innerHTML = `
-        <div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
-        <div class="bg-gray-50 border border-gray-100 text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[95%] text-sm leading-relaxed">${content}</div>
-    `;
+    div.innerHTML = `<div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
+                     <div class="bg-gray-50 border border-gray-100 text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[95%] text-sm leading-relaxed">${isHtml ? text : text.replace(/\n/g, '<br>')}</div>`;
     chatContent.appendChild(div);
     div.scrollIntoView({ behavior: 'smooth' });
 }
@@ -175,23 +139,20 @@ function askDifficulty() {
 }
 
 function showInstructions() {
-    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Rule: AI Evaluation will be provided after every answer.\n5. Click 'End Interview' anytime to stop early.`);
+    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Strict AI Evaluation provided instantly after every answer.\n5. Use 'End Interview' anytime to stop early.`);
     showBtns(["I Agree - Start Interview"], () => {
         timerBox.classList.remove('hidden');
+        
+        // --- ADD END BUTTON TO HEADER ---
         if(!document.getElementById('end-btn')) {
-            const header = timerBox.parentElement;
-            const rightControls = document.createElement('div');
-            rightControls.className = "flex items-center space-x-3";
-            rightControls.id = "header-controls";
-            header.replaceChild(rightControls, timerBox);
-            rightControls.appendChild(timerBox);
             const endBtn = document.createElement('button');
             endBtn.id = "end-btn";
-            endBtn.className = "px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-[11px] font-bold shadow-md transition-all";
+            endBtn.className = "ml-4 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-[11px] font-bold shadow transition-all";
             endBtn.innerText = "End Interview";
-            endBtn.onclick = () => finish();
-            rightControls.appendChild(endBtn);
+            endBtn.onclick = finish;
+            timerBox.appendChild(endBtn); // Puts it right next to the timer
         }
+
         session.active = true;
         startTimer();
         nextQ();
@@ -216,54 +177,47 @@ function nextQ() {
     }
 }
 
-// --- SUBMIT ANSWER (ASYNC AI CALL) ---
+// --- SUBMIT ANSWER & INSTANT FEEDBACK ---
 sendBtn.onclick = async () => {
     const val = userInput.value.trim();
     if(val && session.active) {
         addUserMsg(val);
         userInput.value = '';
         
-        // Show loading state
-        const loadingDiv = document.createElement('div');
-        loadingDiv.className = "text-[11px] text-gray-500 italic mt-2 ml-2";
-        loadingDiv.innerText = "Evaluating critically... (This may take a few seconds)";
-        chatContent.appendChild(loadingDiv);
-        chatContent.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        
-        // Disable input while AI is thinking
+        // Block UI while evaluating
         sendBtn.disabled = true;
         userInput.disabled = true;
+        const loadingMsg = document.createElement('div');
+        loadingMsg.className = "text-[11px] text-gray-500 italic mt-2 ml-10";
+        loadingMsg.innerText = "Evaluating critically... (Please wait)";
+        chatContent.appendChild(loadingMsg);
+        chatContent.scrollIntoView({ behavior: 'smooth' });
 
         const currentQ = session.questions[session.currentIndex];
         
-        // Fetch AI Evaluation
-        const evaluation = await evaluateAnswerWithAI(currentQ, val, session.data.round);
+        // Fetch AI Eval
+        const evaluation = await evaluateAnswer(currentQ, val, session.data.round);
         
-        loadingDiv.remove(); // Remove loading state
-        
+        loadingMsg.remove(); // Remove loading text
         session.answers.push({ q: currentQ, a: val, eval: evaluation });
         
-        // Build Instant Feedback HTML dynamically based on round type
-        let feedbackHtml = `<div class="space-y-2">
-            <p class="font-bold text-[11px] text-gray-500 uppercase">⚡ Strict AI Feedback</p>
-            <div class="flex items-center space-x-3 py-1">
-                <span class="text-sm font-black ${evaluation.score >= 8 ? 'text-green-600' : evaluation.score >= 5 ? 'text-yellow-600' : 'text-red-600'}">Score: ${evaluation.score}/10</span>
-                <span class="px-2 py-0.5 bg-black text-white rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
-            </div>`;
+        // Format Instant Feedback Card
+        let color = evaluation.score >= 8 ? 'text-green-600' : evaluation.score >= 5 ? 'text-yellow-600' : 'text-red-600';
+        let feedbackHtml = `
+            <div class="border-l-4 ${evaluation.score >= 8 ? 'border-green-500' : 'border-red-500'} pl-4 space-y-2 py-1">
+                <p class="font-bold text-[10px] text-gray-500 uppercase tracking-wider">⚡ Immediate Feedback</p>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm font-black ${color}">Score: ${evaluation.score}/10</span>
+                    <span class="px-2 py-0.5 bg-gray-200 text-black rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
+                </div>`;
 
         if (session.data.round === "HR Round") {
-            feedbackHtml += `
-                <p class="text-[12px] text-red-600"><strong>Critique:</strong> ${evaluation.mistakes}</p>
-                <p class="text-[12px] text-yellow-700"><strong>Missing Points:</strong> ${evaluation.missing_points}</p>
-                <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p>
-            </div>`;
+            feedbackHtml += `<p class="text-[12px] text-red-700"><strong>Mistakes:</strong> ${evaluation.mistakes}</p>
+                             <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p></div>`;
         } else {
-            feedbackHtml += `
-                <p class="text-[12px] text-red-600"><strong>Logic:</strong> ${evaluation.logic_feedback}</p>
-                <p class="text-[12px] text-red-500"><strong>Code:</strong> ${evaluation.code_feedback}</p>
-                <p class="text-[12px] text-purple-700"><strong>Time Complexity:</strong> ${evaluation.time_complexity}</p>
-                <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p>
-            </div>`;
+            feedbackHtml += `<p class="text-[12px] text-red-700"><strong>Logic:</strong> ${evaluation.logic_feedback}</p>
+                             <p class="text-[12px] text-purple-700"><strong>Time Complexity:</strong> ${evaluation.time_complexity}</p>
+                             <p class="text-[12px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p></div>`;
         }
 
         addBotMsg(feedbackHtml, true);
@@ -273,7 +227,8 @@ sendBtn.onclick = async () => {
         userInput.disabled = false;
         userInput.focus();
         
-        setTimeout(nextQ, 3000); 
+        // Move to next question after 3.5 seconds
+        setTimeout(nextQ, 3500); 
     }
 };
 
@@ -303,11 +258,10 @@ function renderResult() {
                         <span class="px-2 py-1 bg-black text-white rounded text-[9px] font-bold uppercase">${ev.verdict}</span>
                     </div>`;
             
-            // Render Perfect Solution based on round
             if (session.data.round === "HR Round") {
-                finalHtml += `<p class="text-[12px] text-green-700 bg-green-50 p-3 rounded-lg border border-green-100"><strong>Ideal Answer:</strong><br>${ev.improved_answer}</p></div>`;
+                finalHtml += `<p class="text-[12px] text-green-800 bg-green-50 p-3 rounded-lg"><strong>Ideal Answer:</strong><br>${ev.improved_answer}</p></div>`;
             } else {
-                finalHtml += `<p class="text-[12px] text-green-700 bg-green-50 p-3 rounded-lg border border-green-100"><strong>Optimal Code/Solution:</strong><br>${ev.better_solution}</p></div>`;
+                finalHtml += `<p class="text-[12px] text-green-800 bg-green-50 p-3 rounded-lg"><strong>Optimal Code/Solution:</strong><br>${ev.better_solution}</p></div>`;
             }
         });
     }

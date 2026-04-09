@@ -191,7 +191,7 @@ function finish() {
     // --- TIMER STOPPED HERE ---
     clearInterval(timerInterval); 
     session.active = false;
-    addBotMsg("🔍 **Analyzing your performance against industry standards...**");
+    addBotMsg(""🔍 **Analyzing your performance against industry standards..."");
     setTimeout(renderResult, 2000);
 }
 

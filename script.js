@@ -43,6 +43,7 @@ const hrPool = [
 
 // --- SESSION STATE ---
 let usedQuestions = new Set();
+let timerInterval; // Declared globally to stop it from anywhere
 let session = { 
     data: {}, 
     questions: [], 
@@ -155,12 +156,15 @@ function showInstructions() {
 }
 
 function startTimer() {
-    const timer = setInterval(() => {
+    timerInterval = setInterval(() => {
         session.timeLeft--;
         let m = Math.floor(session.timeLeft / 60);
         let s = session.timeLeft % 60;
         timerDisplay.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-        if(session.timeLeft <= 0) { clearInterval(timer); finish(); }
+        if(session.timeLeft <= 0) { 
+            clearInterval(timerInterval); 
+            finish(); 
+        }
     }, 1000);
 }
 
@@ -184,6 +188,8 @@ sendBtn.onclick = () => {
 };
 
 function finish() {
+    // --- TIMER STOPPED HERE ---
+    clearInterval(timerInterval); 
     session.active = false;
     addBotMsg("🔍 **Analyzing your performance against industry standards...**");
     setTimeout(renderResult, 2000);

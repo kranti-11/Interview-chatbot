@@ -3,36 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interview Chatbot</title>
+    <title>Interview Prep | AI Bot</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        .chat-container::-webkit-scrollbar { width: 5px; }
-        .chat-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        body { font-family: 'Inter', sans-serif; }
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        .input-box-shadow { box-shadow: 0 0 15px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body class="bg-slate-900 h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col h-[600px]">
-        <!-- Header -->
-        <div class="p-4 bg-indigo-600 rounded-t-2xl text-white flex justify-between items-center">
+<body class="bg-white h-screen flex flex-col overflow-hidden">
+
+    <!-- TOP HEADER -->
+    <header class="glass-header border-b border-gray-100 p-4 fixed top-0 w-full z-10">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="font-bold text-lg">Interview Prep Bot</h1>
-                <p id="status" class="text-xs text-indigo-200">Online</p>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight">INTERVIEW PREP</h1>
+                <p class="text-xs text-gray-500 font-medium italic">Practice. Improve. Crack Your Interview.</p>
             </div>
-            <div id="timer" class="hidden font-mono text-yellow-300 bg-indigo-800 px-3 py-1 rounded-md text-sm">
-                45:00
+            <div id="status-tag" class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold uppercase tracking-widest">
+                Active Session
             </div>
         </div>
+    </header>
 
-        <!-- Chat Area -->
-        <div id="chat-box" class="chat-container flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50">
-            <!-- Messages appear here -->
+    <!-- CHAT AREA -->
+    <main id="chat-box" class="chat-scroll flex-1 overflow-y-auto pt-24 pb-32 px-4">
+        <div class="max-w-3xl mx-auto space-y-6 flex flex-col" id="chat-content">
+            <!-- Messages will appear here -->
         </div>
+    </main>
 
-        <!-- Buttons/Input Area -->
-        <div id="options" class="p-4 bg-white border-t rounded-b-2xl flex flex-wrap gap-2 justify-center">
-            <!-- Action buttons will appear here -->
+    <!-- BOTTOM INPUT AREA -->
+    <footer class="fixed bottom-0 w-full bg-white pb-6 pt-2">
+        <div class="max-w-3xl mx-auto px-4">
+            <!-- Options Container (For Buttons/Multi-select) -->
+            <div id="options-ui" class="flex flex-wrap gap-2 mb-4 justify-center">
+                <!-- Selection pills/buttons appear here -->
+            </div>
+
+            <!-- Text Input Box -->
+            <div class="relative flex items-center">
+                <textarea id="user-input" rows="1" 
+                    class="w-full p-4 pr-14 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none input-box-shadow text-gray-700"
+                    placeholder="Type your message..."></textarea>
+                <button id="send-btn" class="absolute right-3 p-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all disabled:bg-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                    </svg>
+                </button>
+            </div>
+            <p class="text-[10px] text-center text-gray-400 mt-3 uppercase tracking-tighter">AI may generate questions based on your year and category selection.</p>
         </div>
-    </div>
+    </footer>
+
     <script src="script.js"></script>
 </body>
 </html>

@@ -5,6 +5,44 @@ const sendBtn = document.getElementById('send-btn');
 const timerDisplay = document.getElementById('timer');
 const timerBox = document.getElementById('timer-box');
 
+// --- YOUR CODING DATABASE ---
+const codingDB = {
+    basics: [
+        "What is an array and how is it stored in memory?",
+        "Difference between stack and queue?",
+        "What is string immutability?",
+        "Explain loops with an example"
+    ],
+    logic: [
+        "How would you find duplicate elements in an array?",
+        "Explain binary search step by step",
+        "How does recursion work?",
+        "How would you reverse an array logically?"
+    ],
+    coding: [
+        "Write code to reverse a string",
+        "Find the largest element in an array",
+        "Check if a string is palindrome",
+        "Find factorial using recursion"
+    ],
+    advanced: [
+        "Explain Dijkstra’s Algorithm",
+        "What is Dynamic Programming?",
+        "Difference between BFS and DFS",
+        "Solve longest increasing subsequence problem"
+    ]
+};
+
+const hrPool = [
+    "Tell me about a time you handled a crisis.",
+    "Why should we hire you for this specific role?",
+    "Describe a conflict with a teammate and how you resolved it.",
+    "What is your greatest professional achievement?",
+    "Where do you see yourself in 5 years?"
+];
+
+// --- SESSION STATE ---
+let usedQuestions = new Set();
 let session = { 
     data: {}, 
     questions: [], 
@@ -14,30 +52,40 @@ let session = {
     timeLeft: 45 * 60 
 };
 
-// --- RANDOMIZED QUESTION POOLS ---
-const hrPool = [
-    "Tell me about a time you showed leadership during a crisis.",
-    "Why do you want to work for our organization specifically?",
-    "Describe a situation where you had to work with a difficult teammate.",
-    "What is your greatest professional achievement and why?",
-    "How do you handle tight deadlines and high-pressure environments?",
-    "Describe a time you failed. What did you learn?",
-    "How do you stay updated with industry trends?",
-    "Tell me about a project that didn't go as planned."
-];
+// --- LOGIC FUNCTIONS ---
+function getRandomQuestion(arr) {
+    let available = arr.filter(q => !usedQuestions.has(q));
+    if (available.length === 0) {
+        usedQuestions.clear();
+        available = arr;
+    }
+    const q = available[Math.floor(Math.random() * available.length)];
+    usedQuestions.add(q);
+    return q;
+}
 
-const codingPool = {
-    Easy: ["Explain the difference between local and global variables.", "What is an Array and how is it stored in memory?", "What is a String and is it immutable?", "Explain the 'if-else' logic."],
-    Moderate: ["Explain Binary Search and its time complexity.", "What is a Linked List vs an Array?", "How does Recursion work?", "What are the OOPs pillars?"],
-    Hard: ["Explain Dijkstra's Algorithm.", "What is Dynamic Programming?", "Explain the difference between BFS and DFS.", "How do you optimize a SQL query?"]
-};
+function generateInterviewSet(type, level) {
+    if (type === "HR Round") {
+        return hrPool.sort(() => 0.5 - Math.random()).slice(0, 5);
+    }
+
+    if (level === "Easy") {
+        return [getRandomQuestion(codingDB.basics), getRandomQuestion(codingDB.logic)];
+    }
+    if (level === "Moderate") {
+        return [getRandomQuestion(codingDB.basics), getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding)];
+    }
+    if (level === "Hard") {
+        return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
+    }
+}
 
 // --- UI HELPERS ---
 function addBotMsg(text) {
     const div = document.createElement('div');
     div.className = "message-fade flex flex-col items-start space-y-2";
     div.innerHTML = `
-        <div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest italic">Professional Evaluator</span></div>
+        <div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
         <div class="bg-gray-50 border border-gray-100 text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[95%] text-sm leading-relaxed">${text.replace(/\n/g, '<br>')}</div>
     `;
     chatContent.appendChild(div);
@@ -56,16 +104,16 @@ function showBtns(opts, cb) {
     optionsArea.innerHTML = '';
     opts.forEach(o => {
         const b = document.createElement('button');
-        b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold hover:bg-black hover:text-white transition-all";
+        b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold hover:bg-black hover:text-white transition-all shadow-sm";
         b.innerText = o;
         b.onclick = () => { addUserMsg(o); optionsArea.innerHTML = ''; cb(o); };
         optionsArea.appendChild(b);
     });
 }
 
-// --- LOGIC ---
+// --- APP FLOW ---
 function init() {
-    addBotMsg("Welcome. I am your AI Interviewer. To start, are you an **Engineering** or **BCC** student?");
+    addBotMsg("Welcome to INTERVIEW PREP. Let's configure your session. Are you an **Engineering** or **BCC** student?");
     showBtns(["Engineering Student", "BCC Student"], (v) => { session.data.type = v; askYear(); });
 }
 
@@ -75,11 +123,11 @@ function askYear() {
 }
 
 function askRound() {
-    addBotMsg("Select the interview round:");
+    addBotMsg("Which round are you practicing for?");
     showBtns(["HR Round", "Coding Round"], (v) => {
         session.data.round = v;
         if(v === "HR Round") {
-            session.questions = hrPool.sort(() => 0.5 - Math.random()).slice(0, 5);
+            session.questions = generateInterviewSet("HR Round");
             showInstructions();
         } else {
             askDifficulty();
@@ -88,21 +136,16 @@ function askRound() {
 }
 
 function askDifficulty() {
-    addBotMsg("Select Coding Difficulty:");
+    addBotMsg("Select Difficulty Level for the Coding Round:");
     showBtns(["Easy", "Moderate", "Hard"], (v) => {
-        session.data.diff = v;
-        if(v === "Easy") session.questions = codingPool.Easy.sort(() => 0.5 - Math.random()).slice(0, 4);
-        else if(v === "Moderate") {
-            session.questions = [codingPool.Easy[0], codingPool.Moderate[0], codingPool.Hard[0], codingPool.Hard[1]];
-        } else {
-            session.questions = codingPool.Hard.sort(() => 0.5 - Math.random()).slice(0, 3);
-        }
+        session.data.level = v;
+        session.questions = generateInterviewSet("Coding Round", v);
         showInstructions();
     });
 }
 
 function showInstructions() {
-    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Time: 45 Minutes\n3. Rules: Tab switching is tracked. Be detailed.\n4. Evaluation: A strict professional report will be generated at the end.`);
+    addBotMsg(`**INSTRUCTIONS:**\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Rule: Tab switching flags the session.\n5. AI Evaluation will be provided at the very end.`);
     showBtns(["I Agree - Start Interview"], () => {
         timerBox.classList.remove('hidden');
         session.active = true;
@@ -142,58 +185,50 @@ sendBtn.onclick = () => {
 
 function finish() {
     session.active = false;
-    addBotMsg("🔍 **Analyzing your performance...** Generating report.");
+    addBotMsg("🔍 **Analyzing your performance against industry standards...**");
     setTimeout(renderResult, 2000);
 }
 
-// --- STRICT EVALUATION ENGINE ---
 function renderResult() {
-    let finalHtml = `<div class="space-y-6"><h2 class="text-xl font-black">FINAL PERFORMANCE REPORT</h2>`;
+    let finalHtml = `<div class="space-y-6"><h2 class="text-xl font-black">INTERVIEW PERFORMANCE REPORT</h2>`;
     
     session.answers.forEach((item, i) => {
         let wordCount = item.a.split(' ').length;
         let isNonsense = /^[a-zA-Z0-9]$|^[xXyYzZ123]+$/.test(item.a) || wordCount < 3;
         
-        let score, verdict, mistakes, better, tip;
+        let score, verdict, mistakes, better;
 
         if (isNonsense) {
-            score = Math.floor(Math.random() * 2);
-            verdict = "Very Poor";
-            mistakes = "The response is meaningless, gibberish, or completely irrelevant to the professional question.";
-            better = "A professional answer should directly address the prompt with structured sentences.";
-            tip = "Avoid providing placeholder text; it results in immediate disqualification.";
-        } else if (wordCount < 10) {
-            score = 3 + Math.floor(Math.random() * 2);
-            verdict = "Poor";
-            mistakes = "The answer is too brief. Industry standards require detailed explanations.";
-            better = "Expand your response using the STAR method (Situation, Task, Action, Result).";
-            tip = "Try to speak or write at least 3-4 sentences per question.";
+            score = Math.floor(Math.random() * 2); verdict = "Very Poor";
+            mistakes = "The response is detected as gibberish or non-professional input.";
+            better = "Provide a structured explanation using technical or behavioral keywords.";
+        } else if (wordCount < 12) {
+            score = 3 + Math.floor(Math.random() * 2); verdict = "Poor";
+            mistakes = "Answer is too concise. Recruiters look for detailed logic and context.";
+            better = "Expand your response by at least 3-4 lines with examples.";
         } else {
-            score = 7 + Math.floor(Math.random() * 3);
-            verdict = "Good / Excellent";
-            mistakes = "Minor grammatical issues or slight lack of specific technical metrics.";
-            better = "Your answer was strong. To make it perfect, include quantifiable results (e.g., 'increased efficiency by 20%').";
-            tip = "Maintain this level of detail but work on your technical vocabulary.";
+            score = 7 + Math.floor(Math.random() * 3); verdict = "Good / Excellent";
+            mistakes = "Lacks minor technical metrics or specific result-oriented language.";
+            better = "Include Time Complexity (Big O) for coding or STAR results for HR.";
         }
 
         finalHtml += `
             <div class="p-5 border border-gray-100 rounded-2xl bg-white shadow-sm space-y-3">
-                <p class="font-bold text-gray-500 text-xs uppercase">Question ${i+1}</p>
-                <p class="text-sm italic">"${item.q}"</p>
-                <div class="flex items-center space-x-4 py-2 border-y border-gray-50">
-                    <span class="text-lg font-black text-black">Score: ${score}/10</span>
-                    <span class="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold uppercase tracking-widest">${verdict}</span>
+                <p class="font-bold text-gray-400 text-[10px] uppercase">Assessment: Question ${i+1}</p>
+                <p class="text-[13px] font-medium italic">"${item.q}"</p>
+                <div class="flex items-center space-x-3 py-2 border-y border-gray-50">
+                    <span class="text-lg font-black">Score: ${score}/10</span>
+                    <span class="px-2 py-1 bg-black text-white rounded text-[9px] font-bold uppercase">${verdict}</span>
                 </div>
                 <div class="text-[12px] space-y-2">
                     <p class="text-red-600"><strong>Mistakes:</strong> ${mistakes}</p>
-                    <p class="text-blue-700 font-medium"><strong>Better Answer:</strong> ${better}</p>
-                    <p class="text-green-700"><strong>Tip:</strong> ${tip}</p>
+                    <p class="text-blue-700"><strong>Better Answer:</strong> ${better}</p>
                 </div>
             </div>
         `;
     });
 
-    finalHtml += `<button onclick="location.reload()" class="w-full p-4 bg-black text-white font-bold rounded-xl">RETAKE INTERVIEW</button></div>`;
+    finalHtml += `<button onclick="location.reload()" class="w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg">RETAKE NEW INTERVIEW</button></div>`;
     addBotMsg(finalHtml);
 }
 

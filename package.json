@@ -1,0 +1,12 @@
+{
+  "name": "interview-chatbot",
+  "version": "1.0.0",
+  "description": "HTML and JS Interview Chatbot",
+  "main": "script.js",
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "start": "echo 'Static site'"
+  },
+  "author": "",
+  "license": "MIT"
+}

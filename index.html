@@ -7,44 +7,44 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #ffffff; }
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; overflow: hidden; }
         .chat-scroll::-webkit-scrollbar { display: none; }
         .message-fade { animation: fadeInUp 0.3s ease-out forwards; }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #f1f5f9; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #f1f5f9; }
+        #chat-content { padding-bottom: 200px; }
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden">
+<body class="flex flex-col h-screen">
 
     <!-- HEADER -->
     <header class="glass-nav px-8 py-5 flex justify-between items-center fixed top-0 w-full z-30">
         <div>
-            <h1 class="text-xl font-black tracking-tighter text-gray-900">INTERVIEW PREP</h1>
+            <h1 class="text-xl font-black tracking-tighter text-gray-900 uppercase">INTERVIEW PREP</h1>
             <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Practice. Improve. Crack Your Interview.</p>
         </div>
-        <div id="timer-container" class="hidden flex items-center space-x-3">
-            <span class="text-[10px] font-bold text-gray-400 uppercase">Time Remaining</span>
-            <div id="timer" class="font-mono text-lg font-black text-red-600 bg-red-50 px-4 py-1 rounded-full border border-red-100">45:00</div>
+        <div id="timer-box" class="hidden flex items-center space-x-3">
+            <div id="timer" class="font-mono text-xl font-black text-red-600 bg-red-50 px-5 py-2 rounded-xl border border-red-100 shadow-sm">45:00</div>
         </div>
     </header>
 
     <!-- CHAT AREA -->
-    <main id="chat-box" class="flex-1 overflow-y-auto pt-28 pb-40 px-6 chat-scroll">
-        <div id="chat-content" class="max-w-3xl mx-auto space-y-10 flex flex-col">
-            <!-- Messages load here -->
+    <main id="chat-box" class="flex-1 overflow-y-auto pt-32 px-6 chat-scroll">
+        <div id="chat-content" class="max-w-3xl mx-auto space-y-12 flex flex-col">
+            <!-- Messages appear here -->
         </div>
     </main>
 
     <!-- INPUT AREA -->
-    <footer class="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-100 p-6 z-20">
+    <footer class="fixed bottom-0 w-full bg-white border-t border-gray-100 p-6 z-20">
         <div class="max-w-3xl mx-auto">
-            <div id="options-area" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
+            <div id="options-area" class="flex flex-wrap gap-2 mb-4 justify-center"></div>
             
             <div class="relative flex items-center">
                 <textarea id="user-input" rows="1" 
-                    class="w-full p-4 pr-16 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none text-sm"
-                    placeholder="Type your answer..."></textarea>
-                <button id="send-btn" class="absolute right-3 p-2.5 bg-black text-white rounded-xl hover:bg-gray-800 transition-all shadow-lg disabled:opacity-20">
+                    class="w-full p-4 pr-16 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none text-sm"
+                    placeholder="Type your professional response..."></textarea>
+                <button id="send-btn" class="absolute right-3 p-3 bg-black text-white rounded-xl hover:bg-gray-800 active:scale-95 transition-all shadow-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                     </svg>

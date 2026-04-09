@@ -149,31 +149,63 @@ function finish() {
 // --- STRICT EVALUATION ENGINE ---
 function renderResult() {
     let finalHtml = `<div class="space-y-6"><h2 class="text-xl font-black">FINAL PERFORMANCE REPORT</h2>`;
-    
-    session.answers.forEach((item, i) => {
-        let wordCount = item.a.split(' ').length;
-        let isNonsense = /^[a-zA-Z0-9]$|^[xXyYzZ123]+$/.test(item.a) || wordCount < 3;
-        
-        let score, verdict, mistakes, better, tip;
 
+    session.answers.forEach((item, i) => {
+        let answer = item.a.trim();
+        let words = answer.split(/\s+/);
+        let wordCount = words.length;
+
+        // --- DETECT NONSENSE ---
+        let isNonsense =
+            wordCount < 3 ||
+            /^[a-z]{1,6}$/i.test(answer) ||   // xyz, abc
+            /(.)\1{3,}/.test(answer);        // aaaa, xxxx
+
+        let score = 0;
+        let verdict = "";
+        let mistakes = "";
+        let better = "";
+        let tip = "";
+
+        // --- STRICT SCORING LOGIC ---
         if (isNonsense) {
-            score = Math.floor(Math.random() * 2);
+            score = Math.floor(Math.random() * 2); // 0-1
             verdict = "Very Poor";
-            mistakes = "The response is meaningless, gibberish, or completely irrelevant to the professional question.";
-            better = "A professional answer should directly address the prompt with structured sentences.";
-            tip = "Avoid providing placeholder text; it results in immediate disqualification.";
-        } else if (wordCount < 10) {
-            score = 3 + Math.floor(Math.random() * 2);
+            mistakes = "The answer is meaningless or irrelevant.";
+            better = "Provide a structured and relevant response addressing the question clearly.";
+            tip = "Never input random or placeholder text. It leads to immediate rejection.";
+        }
+
+        else if (wordCount < 8) {
+            score = 2 + Math.floor(Math.random() * 2); // 2-3
             verdict = "Poor";
-            mistakes = "The answer is too brief. Industry standards require detailed explanations.";
-            better = "Expand your response using the STAR method (Situation, Task, Action, Result).";
-            tip = "Try to speak or write at least 3-4 sentences per question.";
-        } else {
-            score = 7 + Math.floor(Math.random() * 3);
-            verdict = "Good / Excellent";
-            mistakes = "Minor grammatical issues or slight lack of specific technical metrics.";
-            better = "Your answer was strong. To make it perfect, include quantifiable results (e.g., 'increased efficiency by 20%').";
-            tip = "Maintain this level of detail but work on your technical vocabulary.";
+            mistakes = "Answer is too short and lacks clarity.";
+            better = "Expand your answer using proper explanation and examples.";
+            tip = "Write at least 3–4 meaningful sentences.";
+        }
+
+        else if (wordCount < 20) {
+            score = 4 + Math.floor(Math.random() * 2); // 4-5
+            verdict = "Average";
+            mistakes = "Answer lacks depth and structure.";
+            better = "Use structured format like STAR (Situation, Task, Action, Result).";
+            tip = "Add examples and clarity in explanation.";
+        }
+
+        else if (wordCount < 40) {
+            score = 6 + Math.floor(Math.random() * 2); // 6-7
+            verdict = "Good";
+            mistakes = "Answer is decent but lacks strong impact or metrics.";
+            better = "Include measurable achievements and clearer structure.";
+            tip = "Add numbers, results, and confidence in tone.";
+        }
+
+        else {
+            score = 8 + Math.floor(Math.random() * 2); // 8-9
+            verdict = "Excellent";
+            mistakes = "Minor improvements possible in precision or clarity.";
+            better = "Your answer is strong. Slightly improve conciseness and metrics.";
+            tip = "Maintain this level and refine communication.";
         }
 
         finalHtml += `
@@ -192,6 +224,10 @@ function renderResult() {
             </div>
         `;
     });
+
+    finalHtml += `<button onclick="location.reload()" class="w-full p-4 bg-black text-white font-bold rounded-xl">RETAKE INTERVIEW</button></div>`;
+    addBotMsg(finalHtml);
+}
 
     finalHtml += `<button onclick="location.reload()" class="w-full p-4 bg-black text-white font-bold rounded-xl">RETAKE INTERVIEW</button></div>`;
     addBotMsg(finalHtml);

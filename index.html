@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-container::-webkit-scrollbar { width: 5px; }
+        .chat-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-900 h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col h-[600px]">
+        <!-- Header -->
+        <div class="p-4 bg-indigo-600 rounded-t-2xl text-white flex justify-between items-center">
+            <div>
+                <h1 class="font-bold text-lg">Interview Prep Bot</h1>
+                <p id="status" class="text-xs text-indigo-200">Online</p>
+            </div>
+            <div id="timer" class="hidden font-mono text-yellow-300 bg-indigo-800 px-3 py-1 rounded-md text-sm">
+                45:00
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="chat-box" class="chat-container flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50">
+            <!-- Messages appear here -->
+        </div>
+
+        <!-- Buttons/Input Area -->
+        <div id="options" class="p-4 bg-white border-t rounded-b-2xl flex flex-wrap gap-2 justify-center">
+            <!-- Action buttons will appear here -->
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

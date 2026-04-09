@@ -190,7 +190,6 @@ sendBtn.onclick = () => {
 function finish() {
     clearInterval(timerInterval); 
     session.active = false;
-    // ERROR WAS HERE: Fixed the double quotation marks
     addBotMsg("🔍 **Analyzing your performance against industry standards...**");
     setTimeout(renderResult, 2000);
 }
@@ -234,7 +233,7 @@ function renderResult() {
         `;
     });
 
-    finalHtml += `<button onclick="location.reload()" class="mt-6 w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg">RETAKE NEW INTERVIEW</button></div>`;
+    finalHtml += `<button onclick="location.reload()" class="mt-6 w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg hover:bg-gray-800 transition-all">RETAKE NEW INTERVIEW</button></div>`;
     addBotMsg(finalHtml);
 }
 

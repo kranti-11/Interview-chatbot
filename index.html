@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interview Prep AI</title>
-    <!-- Tailwind CSS is required because your JS uses Tailwind classes -->
+    <!-- 1. Loads Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Link to your JS file -->
+    <!-- 2. Loads your JS. The 'defer' keyword is mandatory here! -->
     <script src="script.js" defer></script> 
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen font-sans">
+<body class="bg-gray-100 flex items-center justify-center h-screen font-sans overflow-hidden">
 
     <!-- Main Chat Window -->
     <div class="w-full max-w-2xl bg-white h-[90vh] flex flex-col shadow-2xl rounded-3xl overflow-hidden relative">
         
         <!-- Header & Timer -->
-        <div class="bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+        <div class="bg-white border-b border-gray-200 p-4 flex justify-between items-center z-20">
             <h1 class="font-black text-xl tracking-tight">INTERVIEW AI</h1>
             <div id="timer-box" class="hidden flex items-center space-x-2 bg-red-50 text-red-600 px-3 py-1 rounded-full text-sm font-bold">
                 <span>⏱</span>
@@ -24,17 +24,17 @@
         </div>
 
         <!-- Chat Content Area -->
-        <div id="chat-content" class="flex-1 overflow-y-auto p-6 pb-32">
+        <div id="chat-content" class="flex-1 overflow-y-auto p-6 pb-40">
             <!-- Messages will be injected here by JS -->
         </div>
 
         <!-- Options Area (for Buttons) -->
-        <div id="options-area" class="absolute bottom-20 left-0 w-full px-6 flex flex-wrap gap-2">
+        <div id="options-area" class="absolute bottom-20 left-0 w-full px-6 flex flex-wrap gap-2 z-10 bg-gradient-to-t from-white via-white to-transparent pt-6 pb-2">
             <!-- Buttons injected here -->
         </div>
 
         <!-- User Input Area -->
-        <div class="border-t border-gray-200 p-4 bg-white flex items-center absolute bottom-0 w-full">
+        <div class="border-t border-gray-200 p-4 bg-white flex items-center absolute bottom-0 w-full z-20">
             <input type="text" id="user-input" class="flex-1 bg-gray-100 border-none px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-black text-sm" placeholder="Type your answer here...">
             <button id="send-btn" class="ml-3 bg-black text-white px-5 py-3 rounded-xl font-bold hover:bg-gray-800 transition">Send</button>
         </div>

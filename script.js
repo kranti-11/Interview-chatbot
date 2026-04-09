@@ -2,22 +2,37 @@ const chatContent = document.getElementById('chat-content');
 const optionsUi = document.getElementById('options-ui');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
+const difficultyBadge = document.getElementById('difficulty-badge');
 
-let userData = {
-    selectedMaang: []
+let state = "SETUP"; // SETUP -> INTERVIEW -> END
+let currentStep = 0;
+let userData = { score: 0, qCount: 0, answers: [] };
+
+// Questions Bank
+const questions = {
+    HR: {
+        Beginner: ["Tell me about yourself.", "What are your strengths and weaknesses?", "Why do you want this job?"],
+        Moderate: ["Describe a time you worked in a team.", "How do you handle stress?", "Give an example of a goal you reached."],
+        Hard: ["Tell me about a time you had a conflict with a manager.", "Describe a complex ethical dilemma you faced.", "Where do you see yourself in 5 years?"]
+    },
+    Coding: {
+        Beginner: ["Explain the difference between an Array and a Linked List.", "How does a 'for' loop work?", "What is a variable?"],
+        Moderate: ["How does Binary Search work? What is its complexity?", "Explain the concept of Recursion with an example.", "What is the difference between a Hash Map and an Array?"],
+        Hard: ["Explain how Dijkstra's algorithm works.", "What is Dynamic Programming? Provide a use case.", "Explain memory management in your chosen language."]
+    }
 };
 
-// --- CHAT UTILS ---
+// --- UI UTILS ---
 function addBotMessage(text) {
     const div = document.createElement('div');
-    div.className = "flex flex-col items-start animate-fade-in";
+    div.className = "message-appear flex flex-col items-start w-full";
     div.innerHTML = `
-        <div class="flex items-center space-x-2 mb-1">
-            <div class="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold">AI</div>
-            <span class="text-[10px] font-bold text-gray-400 uppercase">Assistant</span>
+        <div class="flex items-center space-x-2 mb-2">
+            <div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div>
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span>
         </div>
-        <div class="bg-gray-50 border border-gray-100 text-gray-800 p-4 rounded-2xl rounded-tl-none max-w-[90%] text-sm leading-relaxed">
-            ${text}
+        <div class="bg-white border border-gray-100 text-gray-800 p-5 rounded-2xl shadow-sm max-w-[90%] text-sm leading-relaxed">
+            ${text.replace(/\n/g, '<br>')}
         </div>
     `;
     chatContent.appendChild(div);
@@ -26,12 +41,8 @@ function addBotMessage(text) {
 
 function addUserMessage(text) {
     const div = document.createElement('div');
-    div.className = "flex flex-col items-end";
-    div.innerHTML = `
-        <div class="bg-black text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm shadow-sm">
-            ${text}
-        </div>
-    `;
+    div.className = "message-appear flex flex-col items-end w-full";
+    div.innerHTML = `<div class="bg-gray-900 text-white p-4 rounded-2xl max-w-[85%] text-sm shadow-md">${text}</div>`;
     chatContent.appendChild(div);
     scrollToBottom();
 }
@@ -40,12 +51,11 @@ function scrollToBottom() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
-// --- LOGIC ENGINE ---
 function showButtons(options, callback) {
     optionsUi.innerHTML = '';
     options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = "px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:border-black transition-all";
+        btn.className = "px-4 py-2 bg-white border border-gray-200 rounded-full text-xs font-semibold hover:bg-black hover:text-white transition-all shadow-sm";
         btn.innerText = opt;
         btn.onclick = () => {
             addUserMessage(opt);
@@ -56,128 +66,101 @@ function showButtons(options, callback) {
     });
 }
 
-// Special Multi-Select for MAANG
-function showMultiSelect(options, callback) {
-    optionsUi.innerHTML = '';
-    userData.selectedMaang = [];
-    
-    options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = "px-4 py-2 border border-gray-200 rounded-full text-sm font-medium transition-all";
-        btn.innerText = opt;
-        btn.onclick = () => {
-            if (userData.selectedMaang.includes(opt)) {
-                userData.selectedMaang = userData.selectedMaang.filter(i => i !== opt);
-                btn.classList.remove('bg-black', 'text-white');
-            } else {
-                userData.selectedMaang.push(opt);
-                btn.classList.add('bg-black', 'text-white');
-            }
-        };
-        optionsUi.appendChild(btn);
-    });
-
-    const doneBtn = document.createElement('button');
-    doneBtn.className = "px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-bold shadow-lg";
-    doneBtn.innerText = "Confirm Selection →";
-    doneBtn.onclick = () => {
-        if(userData.selectedMaang.length === 0) return alert("Select at least one!");
-        addUserMessage("Selected: " + userData.selectedMaang.join(", "));
-        optionsUi.innerHTML = '';
-        callback();
-    };
-    optionsUi.appendChild(doneBtn);
-}
-
-// --- STEPS ---
+// --- INTERVIEW ENGINE ---
 function init() {
-    addBotMessage("Welcome. To personalize your interview experience, please select your student profile.");
-    showButtons(["Engineering Student", "BCC Student"], (choice) => {
-        userData.studentType = choice;
-        askYear();
+    addBotMessage("Welcome to the Professional AI Interviewer. Please select the **Round Type** to begin.");
+    showButtons(["HR Round", "Coding Round"], (val) => {
+        userData.round = val;
+        askDifficulty();
     });
 }
 
-function askYear() {
-    addBotMessage("Understood. Which year of study are you currently in?");
-    showButtons(["1st Year", "2nd Year", "3rd Year", "4th Year"], (choice) => {
-        userData.year = choice;
-        askMode();
-    });
-}
-
-function askMode() {
-    addBotMessage("Would you like this to be a **Serious** simulated interview or a **Mock** session?");
-    showButtons(["Serious Mode", "Mock Practice"], (choice) => {
-        userData.mode = choice;
-        askCompanyType();
-    });
-}
-
-function askCompanyType() {
-    addBotMessage("Which types of companies are you targeting? Popular options include:");
-    showButtons(["MAANG", "Private Consultancy", "Product Based Startup", "FinTech"], (choice) => {
-        userData.companyType = choice;
-        if(choice === "MAANG") {
-            addBotMessage("Select the MAANG companies you are interested in (Multiple allowed):");
-            showMultiSelect(["Google", "Amazon", "Apple", "Meta", "Netflix", "Microsoft"], askRound);
-        } else if(choice === "Private Consultancy") {
-            showButtons(["TCS", "Infosys", "Wipro", "Accenture", "Deloitte"], (c) => { userData.target = c; askRound(); });
+function askDifficulty() {
+    addBotMessage("Select your **Difficulty Level**:");
+    showButtons(["Beginner", "Moderate", "Hard"], (val) => {
+        userData.difficulty = val;
+        difficultyBadge.innerText = val;
+        difficultyBadge.classList.remove('hidden');
+        if (userData.round === "Coding Round") {
+            askLanguage();
         } else {
-            showButtons(["Unicorn Startup", "Early Stage", "Web3/Crypto"], (c) => { userData.target = c; askRound(); });
+            startInterview();
         }
     });
 }
 
-function askRound() {
-    addBotMessage("Lastly, which round are we focusing on today?");
-    showButtons(["Coding Round", "HR Round"], (choice) => {
-        userData.round = choice;
-        showInstructions();
+function askLanguage() {
+    addBotMessage("Select your preferred **Programming Language**:");
+    showButtons(["Java", "Python", "C++", "JavaScript"], (val) => {
+        userData.language = val;
+        startInterview();
     });
-}
-
-function showInstructions() {
-    addBotMessage("**INTERVIEW PROTOCOL:**\n1. Duration: 45 Minutes\n2. Anti-Cheating: Tab switching will flag your session.\n3. Environment: Keep your camera on if in Serious Mode.");
-    showButtons(["I Accept - Start Interview"], startInterview);
 }
 
 function startInterview() {
-    // Anti-Cheating
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden && userData.mode.includes("Serious")) {
-            alert("TAB SWITCH DETECTED. This event has been recorded for the final report.");
-        }
-    });
+    state = "INTERVIEW";
+    addBotMessage(`Perfect. We are starting the ${userData.round} (${userData.difficulty}). I will ask 3 questions. Please be descriptive.`);
+    nextQuestion();
+}
 
-    addBotMessage(`The ${userData.round} is now live. Please provide detailed answers.`);
-    
-    if(userData.round === "Coding Round") {
-        addBotMessage("Q1: Explain the concept of 'Time Complexity' and calculate the Big O for a nested loop iterating over an array of size N.");
+function nextQuestion() {
+    if (currentStep < 3) {
+        const qList = questions[userData.round.split(' ')[0]][userData.difficulty];
+        userData.currentQuestion = qList[currentStep];
+        setTimeout(() => addBotMessage(`**Question ${currentStep + 1}:** ${userData.currentQuestion}`), 800);
     } else {
-        addBotMessage("Q1: Tell me about a significant technical challenge you faced during a project and how you overcame it.");
+        finishInterview();
     }
 }
 
-// --- INPUT HANDLER ---
+function evaluateAnswer(userAns) {
+    addBotMessage("🔍 *Analyzing your response...*");
+    
+    // Simulated AI Evaluation Logic
+    const score = Math.floor(Math.random() * 4) + 6; // Random score 6-10 for simulation
+    userData.score += score;
+
+    setTimeout(() => {
+        let feedback = `
+            <div class="space-y-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-lg font-bold text-indigo-600">Score: ${score}/10</span>
+                </div>
+                <p><strong>Mistakes:</strong> ${userAns.length < 20 ? "Answer was too short and lacked detail." : "Minor clarity issues."}</p>
+                <p><strong>Better Answer:</strong> A more structured response would include specific examples (STAR method) and technical keywords.</p>
+                <div class="p-3 bg-green-50 rounded-lg text-xs text-green-800">
+                    <strong>Tip:</strong> Maintain eye contact and stay calm while explaining logic.
+                </div>
+            </div>
+        `;
+        addBotMessage(feedback);
+        currentStep++;
+        setTimeout(nextQuestion, 1500);
+    }, 1200);
+}
+
+function finishInterview() {
+    state = "END";
+    const finalScore = (userData.score / 3).toFixed(1);
+    addBotMessage(`**Interview Complete!**\n\n**Overall Score:** ${finalScore}/10\n\n**Weak Areas:** Communication depth and technical jargon usage.\n\n**Improvement Tips:** Practice mock coding daily and read more behavioral interview frameworks.`);
+    showButtons(["Restart Interview"], () => location.reload());
+}
+
+// --- HANDLERS ---
 sendBtn.onclick = () => {
-    const text = userInput.value.trim();
-    if(text) {
-        addUserMessage(text);
+    const val = userInput.value.trim();
+    if (val && state === "INTERVIEW") {
+        addUserMessage(val);
         userInput.value = '';
-        // Simulate bot thinking
-        setTimeout(() => {
-            addBotMessage("Thank you for your response. Evaluating your answer... (Next question coming soon)");
-        }, 1000);
+        evaluateAnswer(val);
     }
 };
 
-// Allow Enter key to send
-userInput.onkeydown = (e) => {
-    if(e.key === "Enter" && !e.shiftKey) {
+userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendBtn.click();
     }
-};
+});
 
 init();

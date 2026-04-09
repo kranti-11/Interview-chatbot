@@ -43,7 +43,7 @@ const hrPool = [
 
 // --- SESSION STATE ---
 let usedQuestions = new Set();
-let timerInterval; // Declared globally to stop it from anywhere
+let timerInterval; 
 let session = { 
     data: {}, 
     questions: [], 
@@ -84,7 +84,7 @@ function generateInterviewSet(type, level) {
 // --- UI HELPERS ---
 function addBotMsg(text) {
     const div = document.createElement('div');
-    div.className = "message-fade flex flex-col items-start space-y-2";
+    div.className = "message-fade flex flex-col items-start space-y-2 mt-4";
     div.innerHTML = `
         <div class="flex items-center space-x-2"><div class="w-6 h-6 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
         <div class="bg-gray-50 border border-gray-100 text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[95%] text-sm leading-relaxed">${text.replace(/\n/g, '<br>')}</div>
@@ -95,7 +95,7 @@ function addBotMsg(text) {
 
 function addUserMsg(text) {
     const div = document.createElement('div');
-    div.className = "message-fade flex flex-col items-end w-full";
+    div.className = "message-fade flex flex-col items-end w-full mt-4";
     div.innerHTML = `<div class="bg-black text-white p-4 px-6 rounded-2xl rounded-tr-none max-w-[85%] text-sm shadow-xl">${text}</div>`;
     chatContent.appendChild(div);
     div.scrollIntoView({ behavior: 'smooth' });
@@ -105,7 +105,7 @@ function showBtns(opts, cb) {
     optionsArea.innerHTML = '';
     opts.forEach(o => {
         const b = document.createElement('button');
-        b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold hover:bg-black hover:text-white transition-all shadow-sm";
+        b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold hover:bg-black hover:text-white transition-all shadow-sm m-1";
         b.innerText = o;
         b.onclick = () => { addUserMsg(o); optionsArea.innerHTML = ''; cb(o); };
         optionsArea.appendChild(b);
@@ -188,10 +188,10 @@ sendBtn.onclick = () => {
 };
 
 function finish() {
-    // --- TIMER STOPPED HERE ---
     clearInterval(timerInterval); 
     session.active = false;
-    addBotMsg(""🔍 **Analyzing your performance against industry standards..."");
+    // ERROR WAS HERE: Fixed the double quotation marks
+    addBotMsg("🔍 **Analyzing your performance against industry standards...**");
     setTimeout(renderResult, 2000);
 }
 
@@ -219,7 +219,7 @@ function renderResult() {
         }
 
         finalHtml += `
-            <div class="p-5 border border-gray-100 rounded-2xl bg-white shadow-sm space-y-3">
+            <div class="p-5 border border-gray-100 rounded-2xl bg-white shadow-sm space-y-3 mt-4">
                 <p class="font-bold text-gray-400 text-[10px] uppercase">Assessment: Question ${i+1}</p>
                 <p class="text-[13px] font-medium italic">"${item.q}"</p>
                 <div class="flex items-center space-x-3 py-2 border-y border-gray-50">
@@ -234,7 +234,7 @@ function renderResult() {
         `;
     });
 
-    finalHtml += `<button onclick="location.reload()" class="w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg">RETAKE NEW INTERVIEW</button></div>`;
+    finalHtml += `<button onclick="location.reload()" class="mt-6 w-full p-4 bg-black text-white font-bold rounded-xl shadow-lg">RETAKE NEW INTERVIEW</button></div>`;
     addBotMsg(finalHtml);
 }
 

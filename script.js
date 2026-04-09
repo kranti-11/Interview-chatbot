@@ -1,106 +1,183 @@
-const chatBox = document.getElementById('chat-box');
-const optionsDiv = document.getElementById('options');
-const timerDisplay = document.getElementById('timer');
+const chatContent = document.getElementById('chat-content');
+const optionsUi = document.getElementById('options-ui');
+const userInput = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
 
-let userChoices = {};
+let userData = {
+    selectedMaang: []
+};
 
-function addMessage(text, isBot = true) {
+// --- CHAT UTILS ---
+function addBotMessage(text) {
     const div = document.createElement('div');
-    div.className = isBot 
-        ? "max-w-[80%] bg-indigo-100 text-indigo-900 p-3 rounded-2xl rounded-tl-none self-start shadow-sm"
-        : "max-w-[80%] bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none self-end ml-auto shadow-sm";
-    div.innerText = text;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    div.className = "flex flex-col items-start animate-fade-in";
+    div.innerHTML = `
+        <div class="flex items-center space-x-2 mb-1">
+            <div class="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold">AI</div>
+            <span class="text-[10px] font-bold text-gray-400 uppercase">Assistant</span>
+        </div>
+        <div class="bg-gray-50 border border-gray-100 text-gray-800 p-4 rounded-2xl rounded-tl-none max-w-[90%] text-sm leading-relaxed">
+            ${text}
+        </div>
+    `;
+    chatContent.appendChild(div);
+    scrollToBottom();
 }
 
+function addUserMessage(text) {
+    const div = document.createElement('div');
+    div.className = "flex flex-col items-end";
+    div.innerHTML = `
+        <div class="bg-black text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm shadow-sm">
+            ${text}
+        </div>
+    `;
+    chatContent.appendChild(div);
+    scrollToBottom();
+}
+
+function scrollToBottom() {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+// --- LOGIC ENGINE ---
 function showButtons(options, callback) {
-    optionsDiv.innerHTML = '';
+    optionsUi.innerHTML = '';
     options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = "bg-white border-2 border-indigo-600 text-indigo-600 font-medium px-4 py-2 rounded-xl hover:bg-indigo-600 hover:text-white transition-all transform active:scale-95";
+        btn.className = "px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:border-black transition-all";
         btn.innerText = opt;
         btn.onclick = () => {
-            addMessage(opt, false);
+            addUserMessage(opt);
+            optionsUi.innerHTML = '';
             callback(opt);
         };
-        optionsDiv.appendChild(btn);
+        optionsUi.appendChild(btn);
     });
 }
 
-// Logic Flow
+// Special Multi-Select for MAANG
+function showMultiSelect(options, callback) {
+    optionsUi.innerHTML = '';
+    userData.selectedMaang = [];
+    
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = "px-4 py-2 border border-gray-200 rounded-full text-sm font-medium transition-all";
+        btn.innerText = opt;
+        btn.onclick = () => {
+            if (userData.selectedMaang.includes(opt)) {
+                userData.selectedMaang = userData.selectedMaang.filter(i => i !== opt);
+                btn.classList.remove('bg-black', 'text-white');
+            } else {
+                userData.selectedMaang.push(opt);
+                btn.classList.add('bg-black', 'text-white');
+            }
+        };
+        optionsUi.appendChild(btn);
+    });
+
+    const doneBtn = document.createElement('button');
+    doneBtn.className = "px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-bold shadow-lg";
+    doneBtn.innerText = "Confirm Selection →";
+    doneBtn.onclick = () => {
+        if(userData.selectedMaang.length === 0) return alert("Select at least one!");
+        addUserMessage("Selected: " + userData.selectedMaang.join(", "));
+        optionsUi.innerHTML = '';
+        callback();
+    };
+    optionsUi.appendChild(doneBtn);
+}
+
+// --- STEPS ---
 function init() {
-    addMessage("Hello! Let's get started. Are you an Engineering or BCC student?");
-    showButtons(["Engineering Student", "BCC Student"], (val) => {
-        userChoices.studentType = val;
+    addBotMessage("Welcome. To personalize your interview experience, please select your student profile.");
+    showButtons(["Engineering Student", "BCC Student"], (choice) => {
+        userData.studentType = choice;
         askYear();
     });
 }
 
 function askYear() {
-    addMessage("Which year are you in?");
-    showButtons(["1st Year", "2nd Year", "3rd Year", "4th Year"], (val) => {
-        userChoices.year = val;
+    addBotMessage("Understood. Which year of study are you currently in?");
+    showButtons(["1st Year", "2nd Year", "3rd Year", "4th Year"], (choice) => {
+        userData.year = choice;
         askMode();
     });
 }
 
 function askMode() {
-    addMessage("Should this session be Serious or a Mock practice?");
-    showButtons(["Serious", "Mock"], (val) => {
-        userChoices.mode = val;
-        askCompany();
+    addBotMessage("Would you like this to be a **Serious** simulated interview or a **Mock** session?");
+    showButtons(["Serious Mode", "Mock Practice"], (choice) => {
+        userData.mode = choice;
+        askCompanyType();
     });
 }
 
-function askCompany() {
-    addMessage("Which company type are you targeting?");
-    showButtons(["MAANG", "Private Consultancy"], (val) => {
-        userChoices.companyCategory = val;
-        if(val === "MAANG") {
-            showButtons(["Google", "Amazon", "Meta", "Netflix"], askRound);
+function askCompanyType() {
+    addBotMessage("Which types of companies are you targeting? Popular options include:");
+    showButtons(["MAANG", "Private Consultancy", "Product Based Startup", "FinTech"], (choice) => {
+        userData.companyType = choice;
+        if(choice === "MAANG") {
+            addBotMessage("Select the MAANG companies you are interested in (Multiple allowed):");
+            showMultiSelect(["Google", "Amazon", "Apple", "Meta", "Netflix", "Microsoft"], askRound);
+        } else if(choice === "Private Consultancy") {
+            showButtons(["TCS", "Infosys", "Wipro", "Accenture", "Deloitte"], (c) => { userData.target = c; askRound(); });
         } else {
-            showButtons(["TCS/Infosys", "Deloitte/EY", "Accenture"], askRound);
+            showButtons(["Unicorn Startup", "Early Stage", "Web3/Crypto"], (c) => { userData.target = c; askRound(); });
         }
     });
 }
 
-function askRound(specificCompany) {
-    userChoices.company = specificCompany;
-    addMessage(`Great! Now, choose the round for ${specificCompany}:`);
-    showButtons(["Coding Round", "HR Round"], (val) => {
-        userChoices.round = val;
+function askRound() {
+    addBotMessage("Lastly, which round are we focusing on today?");
+    showButtons(["Coding Round", "HR Round"], (choice) => {
+        userData.round = choice;
         showInstructions();
     });
 }
 
 function showInstructions() {
-    addMessage("⚠️ FINAL INSTRUCTIONS:");
-    addMessage("1. Time: 45 Mins. 2. CHEATING: Tab switching is tracked. 3. Code/Answers must be original.");
-    showButtons(["I AGREE - START"], startInterview);
+    addBotMessage("**INTERVIEW PROTOCOL:**\n1. Duration: 45 Minutes\n2. Anti-Cheating: Tab switching will flag your session.\n3. Environment: Keep your camera on if in Serious Mode.");
+    showButtons(["I Accept - Start Interview"], startInterview);
 }
 
 function startInterview() {
-    timerDisplay.classList.remove('hidden');
-    
-    // Anti-Cheating Feature
+    // Anti-Cheating
     document.addEventListener("visibilitychange", () => {
-        if (document.hidden && userChoices.mode === "Serious") {
-            alert("CHEATING WARNING: Tab switching is monitored. This attempt has been logged.");
-            addMessage("❌ Session flagged: User switched tabs.");
+        if (document.hidden && userData.mode.includes("Serious")) {
+            alert("TAB SWITCH DETECTED. This event has been recorded for the final report.");
         }
     });
 
-    addMessage(`Starting ${userChoices.round} for ${userChoices.company}. Good luck!`);
+    addBotMessage(`The ${userData.round} is now live. Please provide detailed answers.`);
     
-    // Simple Question Selector
-    if(userChoices.round === "Coding Round") {
-        addMessage("Q1: Write a function to check if a string is a palindrome.");
+    if(userData.round === "Coding Round") {
+        addBotMessage("Q1: Explain the concept of 'Time Complexity' and calculate the Big O for a nested loop iterating over an array of size N.");
     } else {
-        addMessage("Q1: Why should we hire you over other candidates?");
+        addBotMessage("Q1: Tell me about a significant technical challenge you faced during a project and how you overcame it.");
     }
-    
-    optionsDiv.innerHTML = `<input type="text" placeholder="Type your answer here..." class="w-full p-3 border-2 border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-600">`;
 }
+
+// --- INPUT HANDLER ---
+sendBtn.onclick = () => {
+    const text = userInput.value.trim();
+    if(text) {
+        addUserMessage(text);
+        userInput.value = '';
+        // Simulate bot thinking
+        setTimeout(() => {
+            addBotMessage("Thank you for your response. Evaluating your answer... (Next question coming soon)");
+        }, 1000);
+    }
+};
+
+// Allow Enter key to send
+userInput.onkeydown = (e) => {
+    if(e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+    }
+};
 
 init();

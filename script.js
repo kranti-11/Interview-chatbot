@@ -156,8 +156,9 @@ function showMultiSelectBtns(opts, cb) {
 function init() {
     addBotMsg("Welcome. This is a simulated interview environment designed to help you prepare for real placements.");
     setTimeout(() => {
-        // Changed BCC to BSC here
         addBotMsg("Let's configure your session. Are you an Engineering or BSC student?");
+        
+        // 🔴 FULLY FIXED: Button now says "BSC Student" 🔴
         showBtns(["Engineering Student", "BSC Student"], (v) => { session.data.type = v; askYear(); });
     }, 1500);
 }

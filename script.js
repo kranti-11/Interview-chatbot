@@ -65,7 +65,6 @@ function evaluateAnswerLocally(answerText, roundType) {
         tip = "Maintain this level of depth consistently.";
     }
 
-    // Add slight random variance for realism
     tech += Math.floor(Math.random() * 10);
     logic += Math.floor(Math.random() * 10);
 
@@ -75,6 +74,23 @@ function evaluateAnswerLocally(answerText, roundType) {
     };
 }
 
+// --- DYNAMIC SCROLL HELPER (FIXES OVERLAP & SCROLL BAR) ---
+function scrollToBottom() {
+    setTimeout(() => {
+        // Measure the height of the options area so we can push the chat content up
+        const optionsHeight = optionsArea.offsetHeight || 0;
+        
+        // Add padding to the bottom of chat content based on the size of the buttons
+        chatContent.style.paddingBottom = (optionsHeight + 120) + 'px'; 
+
+        // Smoothly scroll to the absolute bottom
+        chatContent.scrollTo({
+            top: chatContent.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 50); // Small delay to let the DOM render the elements first
+}
+
 // --- UI HELPERS ---
 function addBotMsg(text, isHtml = false) {
     const div = document.createElement('div');
@@ -82,7 +98,7 @@ function addBotMsg(text, isHtml = false) {
     div.innerHTML = `<div class="flex items-center space-x-2"><div class="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold shadow-md">AI</div><span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Interviewer</span></div>
                      <div class="bg-white border border-gray-100 shadow-sm text-gray-800 p-5 rounded-2xl rounded-tl-none max-w-[95%] text-sm leading-relaxed">${isHtml ? text : text.replace(/\n/g, '<br>')}</div>`;
     chatContent.appendChild(div);
-    div.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
 }
 
 function addUserMsg(text) {
@@ -90,7 +106,7 @@ function addUserMsg(text) {
     div.className = "message-fade flex flex-col items-end w-full mt-4";
     div.innerHTML = `<div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 px-6 rounded-2xl rounded-tr-none max-w-[85%] text-sm shadow-xl">${text}</div>`;
     chatContent.appendChild(div);
-    div.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
 }
 
 function showBtns(opts, cb) {
@@ -101,10 +117,16 @@ function showBtns(opts, cb) {
         const b = document.createElement('button');
         b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold text-gray-700 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm";
         b.innerText = o;
-        b.onclick = () => { addUserMsg(o); optionsArea.innerHTML = ''; cb(o); };
+        b.onclick = () => { 
+            addUserMsg(o); 
+            optionsArea.innerHTML = ''; 
+            scrollToBottom(); 
+            cb(o); 
+        };
         wrapper.appendChild(b);
     });
     optionsArea.appendChild(wrapper);
+    scrollToBottom();
 }
 
 // MULTI-SELECT UI FUNCTION
@@ -144,12 +166,14 @@ function showMultiSelectBtns(opts, cb) {
         const arr = Array.from(selected);
         addUserMsg(arr.join(', '));
         optionsArea.innerHTML = '';
+        scrollToBottom();
         cb(arr);
     };
 
     wrapper.appendChild(btnContainer);
     wrapper.appendChild(confirmBtn);
     optionsArea.appendChild(wrapper);
+    scrollToBottom();
 }
 
 // --- APP FLOW ---
@@ -157,8 +181,6 @@ function init() {
     addBotMsg("Welcome. This is a simulated interview environment designed to help you prepare for real placements.");
     setTimeout(() => {
         addBotMsg("Let's configure your session. Are you an Engineering or BSC student?");
-        
-        // 🔴 FULLY FIXED: Button now says "BSC Student" 🔴
         showBtns(["Engineering Student", "BSC Student"], (v) => { session.data.type = v; askYear(); });
     }, 1500);
 }
@@ -301,7 +323,6 @@ function renderResult() {
         return;
     }
 
-    // Calculate Averages
     let totals = { comm: 0, tech: 0, logic: 0, clarity: 0 };
     session.answers.forEach(ans => {
         totals.comm += ans.eval.metrics.comm;

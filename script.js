@@ -36,25 +36,50 @@ function generateInterviewSet(type, level) {
     if (level === "Hard") return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
 }
 
-// --- STRICT LOCAL EVALUATION (SKILL BASED, NO MARKS) ---
-function evaluateAnswerLocally(answerText, roundType) {
-    const words = answerText.trim().split(/\s+/).length;
-    const isNonsense = /^[a-zA-Z0-9]$|^[xXyYzZ123]+$/.test(answerText);
+// --- BULLETPROOF NONSENSE DETECTOR ---
+function isIrrelevant(text) {
+    text = text.trim();
+    if (text.length < 8) return true; // Too short (e.g., "a", "0", "xyz")
     
-    let comm, tech, logic, clarity, verdict, feedback, tip;
+    let words = text.split(/\s+/);
+    if (words.length < 4) return true; // Less than 4 words (e.g., "yes I do", "a b c")
 
-    if (isNonsense || words < 5) {
-        comm = 15; tech = 10; logic = 10; clarity = 20;
-        verdict = "Needs Major Work";
-        feedback = "Answer is irrelevant, too short, or lacks professional structure.";
-        tip = "Never give one-word or overly brief answers in a real interview.";
-    } else if (words < 15) {
-        comm = 40; tech = 35; logic = 30; clarity = 50;
+    // Check if the answer lacks vowels (detects keyboard smash like "lkjh gfd ds")
+    let wordsWithVowels = words.filter(w => /[aeiouyAEIOUY]/.test(w)).length;
+    if (wordsWithVowels < words.length / 2) return true; 
+
+    // Check for repetitive characters (detects "aaaaa bbbbb")
+    let uniqueChars = new Set(text.replace(/\s+/g, '').split('')).size;
+    if (uniqueChars < 4) return true;
+
+    return false; // It's a valid attempt
+}
+
+// --- STRICT LOCAL EVALUATION (ABSOLUTE 0% FOR NONSENSE) ---
+function evaluateAnswerLocally(answerText) {
+    const words = answerText.trim().split(/\s+/).length;
+    
+    let comm = 0, tech = 0, logic = 0, clarity = 0;
+    let verdict, feedback, tip;
+
+    if (isIrrelevant(answerText)) {
+        // STRICT 0% - NO VARIANCE ADDED
+        comm = 0; tech = 0; logic = 0; clarity = 0;
+        verdict = "Rejected";
+        feedback = "Answer is invalid, irrelevant, or a single letter/number. This is unacceptable in an interview.";
+        tip = "You must provide complete, professional sentences (minimum 4-5 words).";
+        
+        return { metrics: { comm, tech, logic, clarity }, verdict, feedback, tip };
+    } 
+    
+    // If it passes the irrelevant test, score it normally
+    if (words < 15) {
+        comm = 25; tech = 20; logic = 20; clarity = 30;
         verdict = "Below Average";
-        feedback = "Answer is too brief. Missing deeper reasoning and context.";
+        feedback = "Answer is too brief. Missing deeper reasoning and professional context.";
         tip = "Expand your reasoning. Explain the 'why' and 'how'.";
     } else if (words < 30) {
-        comm = 75; tech = 65; logic = 70; clarity = 80;
+        comm = 70; tech = 60; logic = 65; clarity = 75;
         verdict = "Solid Answer";
         feedback = "Good fundamental explanation, but missing specific edge cases or metrics.";
         tip = "Use the STAR method for HR, or mention Big-O complexity for coding.";
@@ -65,6 +90,7 @@ function evaluateAnswerLocally(answerText, roundType) {
         tip = "Maintain this level of depth consistently.";
     }
 
+    // Apply slight random variance only for valid answers
     tech += Math.floor(Math.random() * 10);
     logic += Math.floor(Math.random() * 10);
 
@@ -74,21 +100,13 @@ function evaluateAnswerLocally(answerText, roundType) {
     };
 }
 
-// --- DYNAMIC SCROLL HELPER (FIXES OVERLAP & SCROLL BAR) ---
+// --- DYNAMIC SCROLL HELPER ---
 function scrollToBottom() {
     setTimeout(() => {
-        // Measure the height of the options area so we can push the chat content up
         const optionsHeight = optionsArea.offsetHeight || 0;
-        
-        // Add padding to the bottom of chat content based on the size of the buttons
         chatContent.style.paddingBottom = (optionsHeight + 120) + 'px'; 
-
-        // Smoothly scroll to the absolute bottom
-        chatContent.scrollTo({
-            top: chatContent.scrollHeight,
-            behavior: 'smooth'
-        });
-    }, 50); // Small delay to let the DOM render the elements first
+        chatContent.scrollTo({ top: chatContent.scrollHeight, behavior: 'smooth' });
+    }, 50);
 }
 
 // --- UI HELPERS ---
@@ -117,26 +135,18 @@ function showBtns(opts, cb) {
         const b = document.createElement('button');
         b.className = "px-5 py-2.5 bg-white border border-gray-200 rounded-full text-[12px] font-bold text-gray-700 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm";
         b.innerText = o;
-        b.onclick = () => { 
-            addUserMsg(o); 
-            optionsArea.innerHTML = ''; 
-            scrollToBottom(); 
-            cb(o); 
-        };
+        b.onclick = () => { addUserMsg(o); optionsArea.innerHTML = ''; scrollToBottom(); cb(o); };
         wrapper.appendChild(b);
     });
     optionsArea.appendChild(wrapper);
     scrollToBottom();
 }
 
-// MULTI-SELECT UI FUNCTION
 function showMultiSelectBtns(opts, cb) {
     optionsArea.innerHTML = '';
     let selected = new Set();
-    
     const wrapper = document.createElement('div');
     wrapper.className = "flex flex-col gap-3 w-full bg-white p-4 border border-gray-100 rounded-2xl shadow-lg mb-2";
-
     const btnContainer = document.createElement('div');
     btnContainer.className = "flex flex-wrap gap-2";
     
@@ -225,7 +235,6 @@ function showInstructions() {
     addBotMsg(`Instructions:\n1. Round: ${session.data.round}\n2. Questions: ${session.questions.length}\n3. Time: 45 Minutes\n4. Analytics provided instantly after every answer.\n5. Click 'End Interview' anytime to stop and see your Chart Analysis.`);
     showBtns(["Start Interview"], () => {
         timerBox.classList.remove('hidden');
-        
         if(!document.getElementById('end-btn')) {
             const endBtn = document.createElement('button');
             endBtn.id = "end-btn";
@@ -234,7 +243,6 @@ function showInstructions() {
             endBtn.onclick = finish; 
             timerBox.parentElement.appendChild(endBtn);
         }
-
         session.active = true;
         startTimer();
         nextQ();
@@ -270,28 +278,30 @@ sendBtn.onclick = () => {
         userInput.disabled = true;
 
         const currentQ = session.questions[session.currentIndex];
-        const evaluation = evaluateAnswerLocally(val, session.data.round);
+        const evaluation = evaluateAnswerLocally(val);
         session.answers.push({ q: currentQ, a: val, eval: evaluation });
         
         setTimeout(() => {
             const m = evaluation.metrics;
+            const borderColor = m.tech === 0 ? "border-red-400" : "border-gray-200";
+            
             let feedbackHtml = `
-                <div class="bg-gray-50 p-4 rounded-xl space-y-3 mt-2 w-full border border-gray-200">
+                <div class="bg-gray-50 p-4 rounded-xl space-y-3 mt-2 w-full border ${borderColor}">
                     <div class="flex justify-between items-center">
                         <p class="font-bold text-[10px] text-gray-500 uppercase">⚡ Skill Analysis</p>
-                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
+                        <span class="px-2 py-0.5 ${m.tech === 0 ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'} rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
                     </div>
                     
                     <div class="space-y-1.5">
                         <div class="text-[10px] font-bold text-gray-600 flex justify-between"><span>Technical Depth</span><span>${m.tech}%</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${m.tech}%"></div></div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="${m.tech === 0 ? 'bg-red-500' : 'bg-blue-500'} h-1.5 rounded-full" style="width: ${m.tech}%"></div></div>
                         
                         <div class="text-[10px] font-bold text-gray-600 flex justify-between"><span>Communication</span><span>${m.comm}%</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-indigo-500 h-1.5 rounded-full" style="width: ${m.comm}%"></div></div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="${m.comm === 0 ? 'bg-red-500' : 'bg-indigo-500'} h-1.5 rounded-full" style="width: ${m.comm}%"></div></div>
                     </div>
 
                     <p class="text-[11px] text-gray-700 mt-2"><strong>Analysis:</strong> ${evaluation.feedback}</p>
-                    <p class="text-[11px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p>
+                    <p class="text-[11px] ${m.tech === 0 ? 'text-red-700' : 'text-blue-700'}"><strong>Tip:</strong> ${evaluation.tip}</p>
                 </div>`;
 
             addBotMsg(feedbackHtml, true);
@@ -316,7 +326,7 @@ function finish() {
     setTimeout(renderResult, 2000);
 }
 
-// --- FINAL DASHBOARD (CHARTS / NO MARKS) ---
+// --- FINAL DASHBOARD (CHARTS) ---
 function renderResult() {
     if (session.answers.length === 0) {
         addBotMsg("You ended the interview before answering any questions. Reload to try again.");
@@ -340,8 +350,8 @@ function renderResult() {
     };
 
     let overallRating = (avg.comm + avg.tech + avg.logic) / 3;
-    let readiness = overallRating > 80 ? "Interview Ready" : overallRating > 50 ? "Needs Practice" : "Requires Major Prep";
-    let readinessColor = overallRating > 80 ? "text-green-600 bg-green-100" : overallRating > 50 ? "text-yellow-600 bg-yellow-100" : "text-red-600 bg-red-100";
+    let readiness = overallRating >= 80 ? "Interview Ready" : overallRating >= 50 ? "Needs Practice" : "Requires Major Prep";
+    let readinessColor = overallRating >= 80 ? "text-green-600 bg-green-100" : overallRating >= 50 ? "text-yellow-600 bg-yellow-100" : "text-red-600 bg-red-100";
 
     let finalHtml = `
     <div class="space-y-5 bg-white p-6 rounded-2xl border border-gray-100 shadow-xl">
@@ -354,28 +364,28 @@ function renderResult() {
         <div class="space-y-4 pt-2">
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Technical / Core Knowledge</span><span>${avg.tech}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.tech}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.tech === 0 ? 'from-red-400 to-red-600' : 'from-blue-400 to-blue-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.tech}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Communication & Formatting</span><span>${avg.comm}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-indigo-400 to-indigo-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.comm}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.comm === 0 ? 'from-red-400 to-red-600' : 'from-indigo-400 to-indigo-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.comm}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Logical Structuring</span><span>${avg.logic}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-purple-400 to-purple-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.logic}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.logic === 0 ? 'from-red-400 to-red-600' : 'from-purple-400 to-purple-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.logic}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Clarity & Confidence</span><span>${avg.clarity}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.clarity}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.clarity === 0 ? 'from-red-400 to-red-600' : 'from-green-400 to-green-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.clarity}%"></div></div>
             </div>
         </div>
 
         <div class="bg-gray-50 p-4 rounded-xl mt-4">
             <h3 class="text-[11px] font-bold text-gray-500 uppercase mb-2">Final Assessor Summary</h3>
             <p class="text-xs text-gray-700 leading-relaxed">
-                ${overallRating > 80 ? "Outstanding performance. Your structuring and details align well with top-tier company expectations." : 
-                  overallRating > 50 ? "You have a solid foundation, but you need to expand your answers with deeper metrics, edge cases, and clearer methodologies." : 
-                  "Your responses were too brief to evaluate properly. Focus on the STAR method for behavioral questions and step-by-step logic for technical ones."}
+                ${overallRating >= 80 ? "Outstanding performance. Your structuring and details align well with top-tier company expectations." : 
+                  overallRating >= 50 ? "You have a solid foundation, but you need to expand your answers with deeper metrics, edge cases, and clearer methodologies." : 
+                  "Your responses were rejected or too brief. Please type full, professional sentences when answering interview questions."}
             </p>
         </div>
 

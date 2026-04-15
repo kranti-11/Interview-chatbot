@@ -36,47 +36,27 @@ function generateInterviewSet(type, level) {
     if (level === "Hard") return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
 }
 
-// --- BULLETPROOF NONSENSE DETECTOR ---
-function isIrrelevant(text) {
-    text = text.trim();
-    if (text.length < 8) return true; // Too short (e.g., "a", "0", "xyz")
-    
-    let words = text.split(/\s+/);
-    if (words.length < 4) return true; // Less than 4 words (e.g., "yes I do", "a b c")
-
-    // Check if the answer lacks vowels (detects keyboard smash like "lkjh gfd ds")
-    let wordsWithVowels = words.filter(w => /[aeiouyAEIOUY]/.test(w)).length;
-    if (wordsWithVowels < words.length / 2) return true; 
-
-    // Check for repetitive characters (detects "aaaaa bbbbb")
-    let uniqueChars = new Set(text.replace(/\s+/g, '').split('')).size;
-    if (uniqueChars < 4) return true;
-
-    return false; // It's a valid attempt
+// 🔥 YOUR STRICT GARBAGE DETECTOR 🔥
+function isGarbage(answer) {
+    const text = answer.trim();
+    return (
+        text.length < 10 ||
+        /^[a-z]{1,6}$/i.test(text) ||
+        !/[a-zA-Z]/.test(text) ||
+        text.split(" ").length < 3
+    );
 }
 
-// --- STRICT LOCAL EVALUATION (ABSOLUTE 0% FOR NONSENSE) ---
+// --- NORMAL SCORING (For valid answers) ---
 function evaluateAnswerLocally(answerText) {
     const words = answerText.trim().split(/\s+/).length;
-    
-    let comm = 0, tech = 0, logic = 0, clarity = 0;
-    let verdict, feedback, tip;
+    let comm, tech, logic, clarity, verdict, feedback, tip;
 
-    if (isIrrelevant(answerText)) {
-        // STRICT 0% - NO VARIANCE ADDED
-        comm = 0; tech = 0; logic = 0; clarity = 0;
-        verdict = "Rejected";
-        feedback = "Answer is invalid, irrelevant, or a single letter/number. This is unacceptable in an interview.";
-        tip = "You must provide complete, professional sentences (minimum 4-5 words).";
-        
-        return { metrics: { comm, tech, logic, clarity }, verdict, feedback, tip };
-    } 
-    
-    // If it passes the irrelevant test, score it normally
+    // Because isGarbage catches the worst ones, we only need to score valid attempts here
     if (words < 15) {
         comm = 25; tech = 20; logic = 20; clarity = 30;
         verdict = "Below Average";
-        feedback = "Answer is too brief. Missing deeper reasoning and professional context.";
+        feedback = "Answer is valid but too brief. Missing deeper reasoning and professional context.";
         tip = "Expand your reasoning. Explain the 'why' and 'how'.";
     } else if (words < 30) {
         comm = 70; tech = 60; logic = 65; clarity = 75;
@@ -90,7 +70,6 @@ function evaluateAnswerLocally(answerText) {
         tip = "Maintain this level of depth consistently.";
     }
 
-    // Apply slight random variance only for valid answers
     tech += Math.floor(Math.random() * 10);
     logic += Math.floor(Math.random() * 10);
 
@@ -267,13 +246,30 @@ function nextQ() {
     }
 }
 
-// --- SUBMIT ANSWER & INSTANT ANALYTICS ---
+// 🔥 UPDATED SUBMIT FUNCTION WITH GARBAGE CHECK 🔥
 sendBtn.onclick = () => {
     const val = userInput.value.trim();
+    
     if(val && session.active) {
         addUserMsg(val);
+
+        // 1. GARBAGE CHECK (Stops processing immediately)
+        if (isGarbage(val)) {
+            let rejectionHtml = `
+                <div class="bg-red-50 p-4 rounded-xl space-y-2 mt-2 w-full border border-red-300 shadow-sm">
+                    <p class="font-bold text-[11px] text-red-600 uppercase">❌ Evaluation Result: 0%</p>
+                    <p class="text-[12px] text-red-800"><strong>Verdict:</strong> Needs Major Work</p>
+                    <p class="text-[11px] text-red-700"><strong>Reason:</strong> Answer is too short, lacks letters, or is entirely irrelevant.</p>
+                    <p class="text-[10px] font-bold text-red-500 pt-1">Please type a proper, professional response to move forward.</p>
+                </div>
+            `;
+            addBotMsg(rejectionHtml, true);
+            userInput.value = '';
+            return; // ❌ STOP HERE: User must answer again, index does not increase.
+        }
+
+        // 2. NORMAL FLOW (Answer accepted)
         userInput.value = '';
-        
         sendBtn.disabled = true;
         userInput.disabled = true;
 
@@ -283,25 +279,23 @@ sendBtn.onclick = () => {
         
         setTimeout(() => {
             const m = evaluation.metrics;
-            const borderColor = m.tech === 0 ? "border-red-400" : "border-gray-200";
-            
             let feedbackHtml = `
-                <div class="bg-gray-50 p-4 rounded-xl space-y-3 mt-2 w-full border ${borderColor}">
+                <div class="bg-gray-50 p-4 rounded-xl space-y-3 mt-2 w-full border border-gray-200">
                     <div class="flex justify-between items-center">
                         <p class="font-bold text-[10px] text-gray-500 uppercase">⚡ Skill Analysis</p>
-                        <span class="px-2 py-0.5 ${m.tech === 0 ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'} rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
+                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[9px] font-bold uppercase">${evaluation.verdict}</span>
                     </div>
                     
                     <div class="space-y-1.5">
                         <div class="text-[10px] font-bold text-gray-600 flex justify-between"><span>Technical Depth</span><span>${m.tech}%</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="${m.tech === 0 ? 'bg-red-500' : 'bg-blue-500'} h-1.5 rounded-full" style="width: ${m.tech}%"></div></div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${m.tech}%"></div></div>
                         
                         <div class="text-[10px] font-bold text-gray-600 flex justify-between"><span>Communication</span><span>${m.comm}%</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="${m.comm === 0 ? 'bg-red-500' : 'bg-indigo-500'} h-1.5 rounded-full" style="width: ${m.comm}%"></div></div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-indigo-500 h-1.5 rounded-full" style="width: ${m.comm}%"></div></div>
                     </div>
 
                     <p class="text-[11px] text-gray-700 mt-2"><strong>Analysis:</strong> ${evaluation.feedback}</p>
-                    <p class="text-[11px] ${m.tech === 0 ? 'text-red-700' : 'text-blue-700'}"><strong>Tip:</strong> ${evaluation.tip}</p>
+                    <p class="text-[11px] text-blue-700"><strong>Tip:</strong> ${evaluation.tip}</p>
                 </div>`;
 
             addBotMsg(feedbackHtml, true);
@@ -364,19 +358,19 @@ function renderResult() {
         <div class="space-y-4 pt-2">
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Technical / Core Knowledge</span><span>${avg.tech}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.tech === 0 ? 'from-red-400 to-red-600' : 'from-blue-400 to-blue-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.tech}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.tech}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Communication & Formatting</span><span>${avg.comm}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.comm === 0 ? 'from-red-400 to-red-600' : 'from-indigo-400 to-indigo-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.comm}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-indigo-400 to-indigo-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.comm}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Logical Structuring</span><span>${avg.logic}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.logic === 0 ? 'from-red-400 to-red-600' : 'from-purple-400 to-purple-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.logic}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-purple-400 to-purple-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.logic}%"></div></div>
             </div>
             <div>
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Clarity & Confidence</span><span>${avg.clarity}%</span></div>
-                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r ${avg.clarity === 0 ? 'from-red-400 to-red-600' : 'from-green-400 to-green-600'} h-3 rounded-full transition-all duration-1000" style="width: ${avg.clarity}%"></div></div>
+                <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.clarity}%"></div></div>
             </div>
         </div>
 
@@ -385,7 +379,7 @@ function renderResult() {
             <p class="text-xs text-gray-700 leading-relaxed">
                 ${overallRating >= 80 ? "Outstanding performance. Your structuring and details align well with top-tier company expectations." : 
                   overallRating >= 50 ? "You have a solid foundation, but you need to expand your answers with deeper metrics, edge cases, and clearer methodologies." : 
-                  "Your responses were rejected or too brief. Please type full, professional sentences when answering interview questions."}
+                  "Your responses were accepted but lack depth. Please type fuller, professional sentences explaining the 'why' and 'how'."}
             </p>
         </div>
 

@@ -36,7 +36,7 @@ function generateInterviewSet(type, level) {
     if (level === "Hard") return [getRandomQuestion(codingDB.logic), getRandomQuestion(codingDB.coding), getRandomQuestion(codingDB.advanced)];
 }
 
-// 🔥 YOUR STRICT GARBAGE DETECTOR 🔥
+// 🔥 STRICT GARBAGE DETECTOR 🔥
 function isGarbage(answer) {
     const text = answer.trim();
     return (
@@ -47,12 +47,52 @@ function isGarbage(answer) {
     );
 }
 
-// --- NORMAL SCORING (For valid answers) ---
-function evaluateAnswerLocally(answerText) {
-    const words = answerText.trim().split(/\s+/).length;
+// --- INTELLIGENT SCORING ENGINE ---
+function evaluateAnswerLocally(answerText, questionText) {
+    const text = answerText.trim().toLowerCase();
+    const words = text.split(/\s+/).length;
     let comm, tech, logic, clarity, verdict, feedback, tip;
 
-    // Because isGarbage catches the worst ones, we only need to score valid attempts here
+    // 🌟 CUSTOM EVALUATION FOR: "Find duplicate elements in an array" 🌟
+    if (questionText === "How would you find duplicate elements in an array?") {
+        const hasHashing = text.includes("hash") || text.includes("set") || text.includes("map") || text.includes("o(n)");
+        const hasSorting = text.includes("sort") || text.includes("n log n");
+        const hasBruteForce = text.includes("loop") || text.includes("nested") || text.includes("n^2") || text.includes("n2");
+        const mentionsComplexity = text.includes("time complexity") || text.includes("space complexity") || text.includes("o(");
+        const isBubbleSort = text.includes("bubble sort");
+
+        if (isBubbleSort && !hasHashing) {
+            comm = 70; tech = 50; logic = 60; clarity = 70;
+            verdict = "Average";
+            feedback = "You mentioned Bubble Sort, which groups duplicates together but is slow (O(n²)).";
+            tip = "Bubble Sort works for sorting, but can you think of a more optimized approach with better time complexity like Hashing?";
+        } else if (hasHashing) {
+            comm = 90; tech = 95; logic = 95; clarity = 90;
+            verdict = "Excellent";
+            feedback = "Great optimization! Using a Hash Set or Map is the preferred O(n) approach.";
+            tip = mentionsComplexity ? "Good job mentioning complexity trade-offs!" : "Always explicitly state the Space Complexity (O(n)) when using extra memory.";
+        } else if (hasSorting) {
+            comm = 80; tech = 75; logic = 80; clarity = 80;
+            verdict = "Solid Answer";
+            feedback = "Sorting the array and comparing adjacent elements is a solid O(n log n) approach.";
+            tip = "To score higher, mention how you can optimize this to O(n) using extra space (like a Set).";
+        } else if (hasBruteForce) {
+            comm = 60; tech = 40; logic = 50; clarity = 60;
+            verdict = "Below Average";
+            feedback = "Nested loops will work but result in a brute-force O(n²) time complexity.";
+            tip = "Try to avoid nested loops. Think about how sorting or hashing can speed this up.";
+        } else {
+            // If they answered without keywords, fall back to basic grading
+            comm = 50; tech = 30; logic = 40; clarity = 50;
+            verdict = "Needs Major Work";
+            feedback = "Your answer lacks technical depth and algorithms.";
+            tip = "Discuss Hash Sets, Sorting, or Nested Loops along with their Big-O Time Complexities.";
+        }
+        
+        return { metrics: { comm, tech, logic, clarity }, verdict, feedback, tip };
+    }
+
+    // 🌟 STANDARD EVALUATION FOR ALL OTHER QUESTIONS 🌟
     if (words < 15) {
         comm = 25; tech = 20; logic = 20; clarity = 30;
         verdict = "Below Average";
@@ -246,35 +286,37 @@ function nextQ() {
     }
 }
 
-// 🔥 UPDATED SUBMIT FUNCTION WITH GARBAGE CHECK 🔥
+// 🔥 MAIN SUBMIT LOGIC 🔥
 sendBtn.onclick = () => {
     const val = userInput.value.trim();
     
     if(val && session.active) {
         addUserMsg(val);
 
-        // 1. GARBAGE CHECK (Stops processing immediately)
+        // 1. REJECTION CHECK
         if (isGarbage(val)) {
             let rejectionHtml = `
                 <div class="bg-red-50 p-4 rounded-xl space-y-2 mt-2 w-full border border-red-300 shadow-sm">
                     <p class="font-bold text-[11px] text-red-600 uppercase">❌ Evaluation Result: 0%</p>
                     <p class="text-[12px] text-red-800"><strong>Verdict:</strong> Needs Major Work</p>
-                    <p class="text-[11px] text-red-700"><strong>Reason:</strong> Answer is too short, lacks letters, or is entirely irrelevant.</p>
-                    <p class="text-[10px] font-bold text-red-500 pt-1">Please type a proper, professional response to move forward.</p>
+                    <p class="text-[11px] text-red-700"><strong>Reason:</strong> Answer is too short or irrelevant.</p>
+                    <p class="text-[10px] font-bold text-red-500 pt-1">Please type a proper response to move forward.</p>
                 </div>
             `;
             addBotMsg(rejectionHtml, true);
             userInput.value = '';
-            return; // ❌ STOP HERE: User must answer again, index does not increase.
+            return; // Stops logic, user stays on the same question
         }
 
-        // 2. NORMAL FLOW (Answer accepted)
+        // 2. PASS TO INTELLIGENT SCORING ENGINE
         userInput.value = '';
         sendBtn.disabled = true;
         userInput.disabled = true;
 
         const currentQ = session.questions[session.currentIndex];
-        const evaluation = evaluateAnswerLocally(val);
+        
+        // Pass BOTH the user's answer AND the current question to check for specific logic
+        const evaluation = evaluateAnswerLocally(val, currentQ);
         session.answers.push({ q: currentQ, a: val, eval: evaluation });
         
         setTimeout(() => {
@@ -372,15 +414,6 @@ function renderResult() {
                 <div class="flex justify-between text-[11px] font-bold text-gray-600 mb-1"><span>Clarity & Confidence</span><span>${avg.clarity}%</span></div>
                 <div class="w-full bg-gray-100 rounded-full h-3"><div class="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-1000" style="width: ${avg.clarity}%"></div></div>
             </div>
-        </div>
-
-        <div class="bg-gray-50 p-4 rounded-xl mt-4">
-            <h3 class="text-[11px] font-bold text-gray-500 uppercase mb-2">Final Assessor Summary</h3>
-            <p class="text-xs text-gray-700 leading-relaxed">
-                ${overallRating >= 80 ? "Outstanding performance. Your structuring and details align well with top-tier company expectations." : 
-                  overallRating >= 50 ? "You have a solid foundation, but you need to expand your answers with deeper metrics, edge cases, and clearer methodologies." : 
-                  "Your responses were accepted but lack depth. Please type fuller, professional sentences explaining the 'why' and 'how'."}
-            </p>
         </div>
 
         <button onclick="location.reload()" class="w-full py-4 bg-black text-white font-bold rounded-xl shadow-md hover:bg-gray-800 transition-all text-sm mt-2">START NEW SESSION</button>
